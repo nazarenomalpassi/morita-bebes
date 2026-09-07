@@ -1,0 +1,53 @@
+{
+  "name": "morita-bebes",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset --local",
+    "db:types": "supabase gen types --local --lang typescript --schema public > src/types/database.ts",
+    "db:test": "docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_initial_schema.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_hardened_workflows.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_invoker_security.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_employee_permissions.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_legacy_sales_import.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_business_analytics.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_sale_receipts.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_employee_compensation_payroll.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_cash_ledger.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_card_payment_surcharges.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_daily_cash_closures.sql && docker exec -i supabase_db_morita-bebes psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify_safe_sale_submission_and_cancellation.sql",
+    "db:test:ecommerce": "supabase db query --linked --file supabase/tests/verify_ecommerce_storefront.sql",
+    "db:advisors": "supabase db advisors --local --type all --level warn --fail-on warn",
+    "db:verify": "pnpm db:test && pnpm db:advisors",
+    "import:sales": "node scripts/import-legacy-sales.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.4",
+    "@supabase/supabase-js": "2.112.0",
+    "exceljs": "4.4.0",
+    "lucide-react": "1.28.0",
+    "next": "16.2.12",
+    "pdfkit": "0.19.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "3.10.1",
+    "svg-to-pdfkit": "0.1.8",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "20.19.43",
+    "@types/pdfkit": "0.17.6",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@types/svg-to-pdfkit": "0.1.4",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.2.12",
+    "supabase": "2.111.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}
