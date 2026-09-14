@@ -324,6 +324,42 @@
   width: 100%;
 }
 
+.payroll-settlement-breakdown {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.8rem;
+}
+
+.payroll-settlement-breakdown > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.payroll-settlement-breakdown > div strong {
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.payroll-settlement-breakdown .payroll-settlement-total {
+  align-items: baseline;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.65rem;
+  color: var(--plum);
+  font-weight: 750;
+}
+
+.payroll-settlement-total strong {
+  font-size: 1.25rem;
+}
+
 .payroll-zero-balance {
   display: grid;
   align-content: center;
@@ -340,6 +376,62 @@
 
 .payroll-history-table td:first-child {
   text-transform: capitalize;
+}
+
+.payroll-history-details {
+  margin-top: 0.3rem;
+  max-width: 28rem;
+  font-size: 0.75rem;
+  text-transform: none;
+}
+
+.payroll-history-details > summary {
+  color: var(--plum);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.payroll-history-breakdown,
+.payroll-history-events {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem 0.75rem;
+  margin-top: 0.7rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+}
+
+.payroll-history-events {
+  display: block;
+}
+
+.payroll-history-events p {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.4rem 0;
+}
+
+.payroll-history-events p span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.payroll-history-void {
+  margin-top: 0.5rem;
+  max-width: 16rem;
+}
+
+.payroll-history-void > summary {
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.73rem;
+  font-weight: 750;
+}
+
+.payroll-history-void .entity-form {
+  margin-top: 0.65rem;
+  font-size: 0.75rem;
 }
 
 .payroll-self-page .payroll-overview {
@@ -4811,6 +4903,14 @@ details > summary::-webkit-details-marker {
 
   .data-table-wrap[data-mobile-cards] .table-empty-cell::before {
     display: none;
+  }
+
+  .data-table-wrap[data-mobile-cards] .payroll-history-table td[data-label="Empleado"] > .payroll-history-details,
+  .data-table-wrap[data-mobile-cards] .payroll-history-table td[data-label="Estado"] > .payroll-history-void,
+  .data-table-wrap[data-mobile-cards] .payroll-history-table td[data-label="Estado"] > small {
+    grid-column: 2;
+    width: 100%;
+    margin-bottom: 0.7rem;
   }
 
   .sale-cart {

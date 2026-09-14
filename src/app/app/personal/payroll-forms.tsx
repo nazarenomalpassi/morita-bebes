@@ -2,6 +2,7 @@
 
 import { Calculator, CircleDollarSign, Save } from "lucide-react";
 import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   markPayrollPaidAction,
@@ -37,7 +38,7 @@ export function CompensationForm({
       <input name="employee_id" type="hidden" value={employee.id} />
       <div className="form-grid">
         <label className="field-label">Sueldo base<input className="field-input" defaultValue={employee.baseSalary} inputMode="decimal" min="0" name="base_salary" required step="0.01" type="number" /></label>
-        <label className="field-label">Comisión sobre ventas<input className="field-input" defaultValue={employee.commissionPercentage || 1} inputMode="decimal" min="0" max="100" name="commission_percentage" required step="0.01" type="number" /></label>
+        <label className="field-label">Comisión sobre ventas<input className="field-input" defaultValue={employee.commissionPercentage} inputMode="decimal" min="0" max="100" name="commission_percentage" required step="0.01" type="number" /></label>
         <label className="field-label">Vigente desde<input className="field-input" defaultValue={month} name="effective_month" required type="month" /></label>
         <label className="field-label">Tipo<input className="field-input" disabled value="Ventas totales del local" /></label>
         <label className="field-label form-span-2">Motivo o nota<textarea className="field-textarea" maxLength={500} name="notes" rows={2} /></label>
@@ -49,32 +50,90 @@ export function CompensationForm({
 }
 
 export function SettlementForm({
-  employeeId,
+  employee,
   month,
+  currentMonth,
+  autoOpen,
+  hasUnlinkedLegacyAdvances,
   disabled,
+  paymentMethods,
 }: {
-  employeeId: string;
+  employee: PayrollEmployeeSummary;
   month: string;
+  currentMonth: string;
+  autoOpen: boolean;
+  hasUnlinkedLegacyAdvances: boolean;
   disabled: boolean;
+  paymentMethods: Array<{ id: string; name: string }>;
 }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(settlePayrollAction, {});
+  const [selectedMonth, setSelectedMonth] = useState(month);
+  const [combined, setCombined] = useState(false);
+  const [methodId, setMethodId] = useState(paymentMethods[0]?.id ?? "");
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const roundedTotal = Math.round(employee.estimatedSalary * 100) / 100;
+  const payments = roundedTotal === 0 ? [] : combined
+    ? paymentMethods.flatMap((method) => {
+        const amount = Number(amounts[method.id] || 0);
+        return amount > 0 ? [{ payment_method_id: method.id, amount: Math.round(amount * 100) / 100 }] : [];
+      })
+    : methodId ? [{ payment_method_id: methodId, amount: roundedTotal }] : [];
+  const allocated = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const matches = roundedTotal === 0 || (payments.length > 0 && Math.abs(allocated - roundedTotal) < 0.005);
   return (
-    <form action={action} className="payroll-inline-action">
-      <input name="employee_id" type="hidden" value={employeeId} />
+    <details className="row-editor payroll-payment-editor" open={autoOpen}>
+    <summary className="button button-primary"><Calculator size={16} /> Liquidar sueldo</summary>
+    <div className="row-editor-panel">
+    <form action={action} className="entity-form payroll-payment-form">
+      <input name="employee_id" type="hidden" value={employee.id} />
       <input name="period_month" type="hidden" value={month} />
+      <input name="payments" type="hidden" value={JSON.stringify(payments)} />
       <input name="notes" type="hidden" value="Liquidación mensual confirmada desde Personal" />
+      <label className="field-label">Mes a liquidar<input className="field-input" max={currentMonth} onChange={(event) => {
+        const nextMonth = event.target.value;
+        setSelectedMonth(nextMonth);
+        if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(nextMonth)) return;
+        const params = new URLSearchParams({ mes: nextMonth, empleado: employee.id, liquidar: employee.id });
+        router.push(`/app/personal?${params}`, { scroll: false });
+      }} required type="month" value={selectedMonth} /></label>
+      <div aria-live="polite" className="payroll-settlement-breakdown">
+        <div><span>Sueldo básico</span><strong>{ars.format(employee.baseSalary)}</strong></div>
+        <div><span>Ventas del mes</span><strong>{ars.format(employee.grossSales)}</strong></div>
+        <div><span>Comisión {employee.commissionPercentage}%</span><strong>{ars.format(employee.commissionAmount)}</strong></div>
+        <div><span>Sueldo generado</span><strong>{ars.format(employee.grossSalary)}</strong></div>
+        <div><span>Adelantos del mes</span><strong>- {ars.format(employee.advanceAmount)}</strong></div>
+        {employee.bonusAmount > 0 ? <div><span>Bonos históricos</span><strong>+ {ars.format(employee.bonusAmount)}</strong></div> : null}
+        {employee.deductionAmount > 0 ? <div><span>Descuentos históricos</span><strong>- {ars.format(employee.deductionAmount)}</strong></div> : null}
+        <div className="payroll-settlement-total"><span>Total a cobrar</span><strong>{ars.format(roundedTotal)}</strong></div>
+      </div>
+      {hasUnlinkedLegacyAdvances ? <p className="form-error">Este mes incluye adelantos históricos sin salida de Caja vinculada. Revisá que no dupliquen otros pagos antes de confirmar.</p> : null}
+      <p className="payroll-advance-hint">El egreso de Caja se registra con la fecha de hoy al confirmar. Los importes se verifican nuevamente en la base.</p>
+      {roundedTotal > 0 ? <>
+        <label className="field-label sale-combined-toggle"><span>Pago combinado</span><input checked={combined} onChange={(event) => setCombined(event.target.checked)} type="checkbox" /></label>
+        {combined ? <div className="sale-payment-allocation">
+          {paymentMethods.map((method) => <label className="field-label" key={method.id}>{method.name}<input className="field-input" inputMode="decimal" min="0" onChange={(event) => {
+            const sanitized = sanitizeDecimalInput(event.target.value);
+            if (sanitized !== null) setAmounts((current) => ({ ...current, [method.id]: sanitized }));
+          }} step="0.01" type="number" value={amounts[method.id] ?? ""} /></label>)}
+          <small className={matches ? "positive-value" : "negative-value"}>{ars.format(allocated)} / {ars.format(roundedTotal)}</small>
+        </div> : <label className="field-label">Medio de egreso<select className="field-input" onChange={(event) => setMethodId(event.target.value)} value={methodId}><option disabled value="">Seleccionar</option>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.name}</option>)}</select></label>}
+      </> : <p className="payroll-advance-hint">Sin saldo a pagar. No se generará otro egreso.</p>}
       <ActionMessage state={state} />
       <button
         className="button button-primary"
-        disabled={disabled || pending}
+        disabled={disabled || pending || selectedMonth !== month || !matches || (roundedTotal > 0 && paymentMethods.length === 0)}
         onClick={(event) => {
-          if (!window.confirm("¿Confirmar la liquidación? Los importes quedarán guardados como snapshot histórico.")) event.preventDefault();
+          const message = `¿Liquidar ${month} por ${ars.format(roundedTotal)}?\n\nSueldo generado: ${ars.format(employee.grossSalary)}\nAdelantos: ${ars.format(employee.advanceAmount)}\n\nEl pago se descontará de Caja hoy.${hasUnlinkedLegacyAdvances ? "\n\nAtención: hay adelantos históricos sin salida de Caja vinculada." : ""}`;
+          if (!window.confirm(message)) event.preventDefault();
         }}
         type="submit"
       >
-        <Calculator size={16} /> {pending ? "Liquidando..." : disabled ? "Disponible al cerrar el mes" : "Liquidar sueldo"}
+        <Calculator size={16} /> {pending ? "Liquidando..." : disabled ? month >= currentMonth ? "Elegí un mes cerrado" : "Configurá el sueldo primero" : "Confirmar liquidación y pago"}
       </button>
     </form>
+    </div>
+    </details>
   );
 }
 

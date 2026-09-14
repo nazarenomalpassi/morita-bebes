@@ -1258,8 +1258,12 @@ export type Database = {
           notes: string | null
           organization_id: string
           paid_at: string | null
+          payment_method_id: string | null
           period_month: string
           settlement_id: string | null
+          voided_at: string | null
+          voided_by: string | null
+          void_reason: string | null
         }
         Insert: {
           amount: number
@@ -1272,8 +1276,12 @@ export type Database = {
           notes?: string | null
           organization_id: string
           paid_at?: string | null
+          payment_method_id?: string | null
           period_month: string
           settlement_id?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
         }
         Update: {
           amount?: number
@@ -1286,8 +1294,12 @@ export type Database = {
           notes?: string | null
           organization_id?: string
           paid_at?: string | null
+          payment_method_id?: string | null
           period_month?: string
           settlement_id?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
         }
         Relationships: [
           {
@@ -1302,6 +1314,13 @@ export type Database = {
             columns: ["expense_id", "organization_id"]
             isOneToOne: false
             referencedRelation: "expenses"
+            referencedColumns: ["id", "organization_id"]
+          },
+          {
+            foreignKeyName: "payroll_movements_payment_method_fk"
+            columns: ["payment_method_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
             referencedColumns: ["id", "organization_id"]
           },
           {
@@ -1454,6 +1473,9 @@ export type Database = {
           settled_by: string
           status: Database["public"]["Enums"]["payroll_settlement_status"]
           updated_at: string
+          voided_at: string | null
+          voided_by: string | null
+          void_reason: string | null
         }
         Insert: {
           advance_amount?: number
@@ -1482,6 +1504,9 @@ export type Database = {
           settled_by: string
           status?: Database["public"]["Enums"]["payroll_settlement_status"]
           updated_at?: string
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
         }
         Update: {
           advance_amount?: number
@@ -1510,6 +1535,9 @@ export type Database = {
           settled_by?: string
           status?: Database["public"]["Enums"]["payroll_settlement_status"]
           updated_at?: string
+          voided_at?: string | null
+          voided_by?: string | null
+          void_reason?: string | null
         }
         Relationships: [
           {
@@ -2969,6 +2997,45 @@ export type Database = {
           p_paid_at: string
           p_payment_method_id: string
           p_settlement_id: string
+        }
+        Returns: string
+      }
+      register_payroll_advance: {
+        Args: {
+          p_organization_id: string
+          p_employee_id: string
+          p_period_month: string
+          p_amount: number
+          p_paid_at: string
+          p_payment_method_id: string
+          p_notes?: string
+        }
+        Returns: string
+      }
+      void_payroll_advance: {
+        Args: {
+          p_organization_id: string
+          p_movement_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
+      void_payroll_settlement: {
+        Args: {
+          p_organization_id: string
+          p_settlement_id: string
+          p_reason: string
+        }
+        Returns: string
+      }
+      settle_and_pay_employee_payroll: {
+        Args: {
+          p_organization_id: string
+          p_employee_id: string
+          p_period_month: string
+          p_paid_at: string
+          p_payments: Json
+          p_notes?: string
         }
         Returns: string
       }

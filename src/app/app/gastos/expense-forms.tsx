@@ -18,8 +18,6 @@ type ExpenseValues = {
   expense_date?: string;
   category_id?: string | null;
   payment_method_id?: string | null;
-  payroll_employee_id?: string | null;
-  payroll_period_month?: string | null;
   notes?: string | null;
 };
 
@@ -32,28 +30,18 @@ function today() {
 export function ExpenseForm({
   categories,
   paymentMethods,
-  employees = [],
   values = {},
   canChooseDate = true,
-  canAssignPayrollAdvance = true,
 }: {
   categories: CategoryOption[];
   paymentMethods: Option[];
-  employees?: Option[];
   values?: ExpenseValues;
   canChooseDate?: boolean;
-  canAssignPayrollAdvance?: boolean;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(saveExpenseAction, {});
   const initialDate = values.expense_date ?? today();
   const [expenseDate, setExpenseDate] = useState(initialDate);
   const [categoryId, setCategoryId] = useState(values.category_id ?? "");
-  const [payrollMonth, setPayrollMonth] = useState(
-    values.payroll_period_month?.slice(0, 7) ?? initialDate.slice(0, 7),
-  );
-  const isPayrollAdvance = categories.some((category) => (
-    category.id === categoryId && category.is_payroll_advance
-  ));
   return (
     <form action={action} className="entity-form">
       <input name="id" type="hidden" value={values.id ?? ""} />
@@ -67,16 +55,14 @@ export function ExpenseForm({
           <input className="field-input" defaultValue={values.amount} inputMode="decimal" min="0.01" name="amount" required step="0.01" type="number" />
         </label>
         {canChooseDate ? <label className="field-label">Fecha<input className="field-input" name="expense_date" onChange={(event) => {
-          const previousMonth = expenseDate.slice(0, 7);
           const nextDate = event.target.value;
           setExpenseDate(nextDate);
-          if (payrollMonth === previousMonth) setPayrollMonth(nextDate.slice(0, 7));
         }} required type="date" value={expenseDate} /></label> : <input name="expense_date" type="hidden" value={today()} />}
         <label className="field-label">
           Categoría
           <select className="field-input" name="category_id" onChange={(event) => setCategoryId(event.target.value)} value={categoryId}>
             <option value="">Sin categoría</option>
-            {categories.map((category) => <option disabled={category.is_payroll_advance && !canAssignPayrollAdvance} key={category.id} value={category.id}>{category.name}</option>)}
+            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
           </select>
         </label>
         <label className="field-label">
@@ -86,18 +72,8 @@ export function ExpenseForm({
             {paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.name}</option>)}
           </select>
         </label>
-        {isPayrollAdvance ? (
-          <div className="payroll-expense-fields form-span-2">
-            <p><strong>Adelanto de sueldo</strong><span>Este importe se descontará de la liquidación del período indicado.</span></p>
-            <label className="field-label">Empleada/o<select className="field-input" defaultValue={values.payroll_employee_id ?? ""} name="payroll_employee_id" required><option disabled value="">Seleccionar empleado</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}</select></label>
-            <label className="field-label">Mes a descontar<input className="field-input" name="payroll_period_month" onChange={(event) => setPayrollMonth(event.target.value)} required type="month" value={payrollMonth} /></label>
-          </div>
-        ) : (
-          <>
-            <input name="payroll_employee_id" type="hidden" value="" />
-            <input name="payroll_period_month" type="hidden" value="" />
-          </>
-        )}
+        <input name="payroll_employee_id" type="hidden" value="" />
+        <input name="payroll_period_month" type="hidden" value="" />
         <label className="field-label form-span-2">
           Nota
           <textarea className="field-textarea" defaultValue={values.notes ?? ""} maxLength={1000} name="notes" rows={2} />

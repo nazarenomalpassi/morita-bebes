@@ -60,11 +60,8 @@ export async function saveExpenseAction(
   }
 
   const isPayrollAdvance = category?.is_payroll_advance ?? false;
-  if (isPayrollAdvance && organization.role === "staff") {
-    return { error: "Solo un administrador puede registrar adelantos de sueldo." };
-  }
-  if (isPayrollAdvance && (!parsed.data.payroll_employee_id || !parsed.data.payroll_period_month)) {
-    return { error: "Elegí la empleada y el mes donde se descontará el adelanto." };
+  if (isPayrollAdvance) {
+    return { error: "Los adelantos de sueldo se registran desde Personal." };
   }
 
   const payload = {
@@ -74,8 +71,8 @@ export async function saveExpenseAction(
     category_id: parsed.data.category_id || null,
     payment_method_id: parsed.data.payment_method_id,
     notes: parsed.data.notes || null,
-    payroll_employee_id: isPayrollAdvance ? parsed.data.payroll_employee_id : null,
-    payroll_period_month: isPayrollAdvance ? `${parsed.data.payroll_period_month}-01` : null,
+    payroll_employee_id: null,
+    payroll_period_month: null,
   };
 
   const result = parsed.data.id
@@ -122,11 +119,14 @@ export async function createExpenseCategoryAction(
   if (name.length < 2 || name.length > 100) {
     return { error: "Ingresá un nombre de entre 2 y 100 caracteres." };
   }
+  if (["sueldo", "sueldos", "adelanto", "adelantos", "liquidacion", "liquidación"].includes(name.trim().toLowerCase())) {
+    return { error: "Los egresos de Personal se registran en su propia sección." };
+  }
   const { organization, supabase } = await requireActionContext(["owner", "admin"]);
   const { error } = await supabase.from("expense_categories").insert({
     organization_id: organization.id,
     name,
-    is_payroll_advance: ["sueldo", "sueldos"].includes(name.trim().toLowerCase()),
+    is_payroll_advance: false,
   });
   if (error) return { error: friendlyDatabaseError(error) };
   revalidatePath("/app/gastos");

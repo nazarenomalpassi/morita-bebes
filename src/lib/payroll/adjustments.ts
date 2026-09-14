@@ -12,6 +12,7 @@ type LiveMovement = {
   period_month: string;
   notes: string | null;
   expense_id: string | null;
+  voided_at?: string | null;
   expenses?: { expense_date: string; description: string } | null;
 };
 
@@ -28,6 +29,7 @@ type SettlementRow = {
   id: string;
   employee_id: string;
   period_month: string;
+  voided_at?: string | null;
   bonus_amount: number;
   advance_amount: number;
   deduction_amount: number;
@@ -68,13 +70,14 @@ export function enrichPayrollDashboard(
     ...dashboard,
     employees: dashboard.employees.map((employee) => {
       const liveAdjustments = movements
-        .filter((movement) => movement.employee_id === employee.id)
+        .filter((movement) => movement.employee_id === employee.id && !movement.voided_at)
         .flatMap((movement) => {
           const adjustment = liveAdjustment(movement);
           return adjustment ? [adjustment] : [];
         });
       const settlementRow = settlements.find((settlement) => (
         settlement.employee_id === employee.id
+        && !settlement.voided_at
         && settlement.period_month.slice(0, 7) === dashboard.meta.periodMonth.slice(0, 7)
       ));
 

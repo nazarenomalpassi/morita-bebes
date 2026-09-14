@@ -42,7 +42,7 @@ export default async function MyPayrollPage({
       .limit(24),
     supabase
       .from("payroll_movements")
-      .select("id, employee_id, kind, amount, paid_at, period_month, notes, expense_id, expenses(expense_date, description)")
+      .select("id, employee_id, kind, amount, paid_at, period_month, notes, expense_id, voided_at, expenses(expense_date, description)")
       .eq("organization_id", organization.id)
       .eq("period_month", periodStart)
       .neq("kind", "salary")

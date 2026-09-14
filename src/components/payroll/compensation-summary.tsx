@@ -26,6 +26,8 @@ export function CompensationSummary({
   const bonusAmount = settlement?.bonusAmount ?? employee.bonusAmount;
   const deductionAmount = settlement?.deductionAmount ?? employee.deductionAmount;
   const adjustments = settlement?.adjustments ?? employee.adjustments;
+  const paidAmount = settlement?.status === "paid" ? settlement.netSalary : 0;
+  const pendingAmount = Math.max(0, total - paidAmount);
   const progress = payrollProgress(meta.daysElapsed, meta.daysInMonth);
 
   return (
@@ -40,7 +42,7 @@ export function CompensationSummary({
           </div>
         </div>
         <span className={`table-status ${settlement?.status === "paid" ? "table-status-ok" : ""}`}>
-          {settlement?.status === "paid" ? "Pagado" : settlement ? "Liquidado" : "Acumulado"}
+          {settlement?.status === "paid" ? "Liquidado" : settlement ? "Pendiente de pago" : advanceAmount > 0 ? meta.isCurrentMonth ? "Con adelantos · provisorio" : "Con adelantos" : meta.isCurrentMonth ? "Provisorio" : "Pendiente de liquidación"}
         </span>
       </header>
 
@@ -54,30 +56,32 @@ export function CompensationSummary({
             <div><span>Sueldo base</span><strong>{ars.format(settlement?.baseSalary ?? employee.baseSalary)}</strong></div>
             <div><span>Ventas del local</span><strong>{ars.format(settlement?.commissionBase ?? employee.grossSales)}</strong><small>{settlement?.salesCount ?? employee.salesCount} operaciones válidas</small></div>
             <div><span>Comisión {settlement?.commissionPercentage ?? employee.commissionPercentage}%</span><strong>{ars.format(settlement?.commissionAmount ?? employee.commissionAmount)}</strong></div>
-            <div className="payroll-total"><span>{settlement ? "Saldo liquidado" : "Estimado a pagar"}</span><strong>{ars.format(total)}</strong></div>
+            <div className="payroll-total"><span>Sueldo generado</span><strong>{ars.format(grossTotal)}</strong></div>
           </div>
 
+          <div className="payroll-adjustments">
+            <div className="payroll-adjustments-summary">
+              <div><span>Adelantos</span><strong className="negative-value">- {ars.format(advanceAmount)}</strong></div>
+              {bonusAmount > 0 ? <div><span>Bonos históricos</span><strong className="positive-value">+ {ars.format(bonusAmount)}</strong></div> : null}
+              {deductionAmount > 0 ? <div><span>Descuentos históricos</span><strong className="negative-value">- {ars.format(deductionAmount)}</strong></div> : null}
+              <div><span>Liquidación abonada</span><strong>{ars.format(paidAmount)}</strong></div>
+              <div><span>Total abonado</span><strong>{ars.format(advanceAmount + paidAmount)}</strong></div>
+              <div><span>Saldo pendiente</span><strong>{ars.format(pendingAmount)}</strong></div>
+            </div>
           {adjustments.length > 0 ? (
-            <div className="payroll-adjustments">
-              <div className="payroll-adjustments-summary">
-                <div><span>Sueldo bruto</span><strong>{ars.format(grossTotal)}</strong></div>
-                <div><span>Adelantos</span><strong className="negative-value">- {ars.format(advanceAmount)}</strong></div>
-                <div><span>Bonos</span><strong className="positive-value">+ {ars.format(bonusAmount)}</strong></div>
-                <div><span>Otros descuentos</span><strong className="negative-value">- {ars.format(deductionAmount)}</strong></div>
-              </div>
               <details className="payroll-adjustment-details">
-                <summary><ReceiptText size={15} /> Ver detalle de adelantos y ajustes</summary>
+                <summary><ReceiptText size={15} /> Ver movimientos del período</summary>
                 <div>
                   {adjustments.map((adjustment) => (
                     <p key={adjustment.id}>
-                      <span><strong>{adjustment.description}</strong><small>{localDate(adjustment.occurredOn)} · {adjustment.sourceType === "expense" ? "Registrado en Gastos" : "Ajuste manual"}</small></span>
+                      <span><strong>{adjustment.description}</strong><small>{localDate(adjustment.occurredOn)} · {adjustment.sourceType === "expense" ? "Registro anterior" : "Personal"}</small></span>
                       <strong className={adjustment.kind === "bonus" ? "positive-value" : "negative-value"}>{adjustment.kind === "bonus" ? "+ " : "- "}{ars.format(adjustment.amount)}</strong>
                     </p>
                   ))}
                 </div>
               </details>
-            </div>
           ) : null}
+          </div>
 
           <div className="payroll-month-progress">
             <div>

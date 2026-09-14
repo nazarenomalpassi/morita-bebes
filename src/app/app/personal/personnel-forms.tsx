@@ -1,13 +1,16 @@
 "use client";
 
-import { Save } from "lucide-react";
-import { useActionState } from "react";
+import { Ban, Save } from "lucide-react";
+import { useActionState, useState } from "react";
 
 import {
-  createPayrollMovementAction,
+  registerPayrollAdvanceAction,
   saveEmployeeAction,
+  voidPayrollAdvanceAction,
+  voidPayrollSettlementAction,
 } from "@/app/app/personal/actions";
 import type { ActionState } from "@/lib/actions/form-state";
+import { ars } from "@/lib/format";
 
 type EmployeeValues = {
   id?: string;
@@ -21,7 +24,8 @@ type EmployeeValues = {
   notes?: string | null;
 };
 
-type EmployeeOption = { id: string; name: string; baseSalary: number };
+type EmployeeOption = { id: string; name: string; availableSalary: number };
+type PaymentMethodOption = { id: string; name: string };
 export type StaffAccountOption = { id: string; name: string };
 
 function localToday() {
@@ -49,20 +53,52 @@ export function EmployeeForm({ values = {}, accounts = [] }: { values?: Employee
   );
 }
 
-export function PayrollMovementForm({ employees, month }: { employees: EmployeeOption[]; month: string }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(createPayrollMovementAction, {});
+export function PayrollAdvanceForm({ employees, paymentMethods, month, selectedEmployeeId = "" }: { employees: EmployeeOption[]; paymentMethods: PaymentMethodOption[]; month: string; selectedEmployeeId?: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(registerPayrollAdvanceAction, {});
+  const [employeeId, setEmployeeId] = useState(selectedEmployeeId);
+  const [amount, setAmount] = useState("");
+  const available = employees.find((employee) => employee.id === employeeId)?.availableSalary ?? null;
+  const aboveAvailable = available !== null && Number(amount.replace(",", ".")) > available;
   return (
     <form action={action} className="entity-form">
       <div className="form-grid">
-        <label className="field-label form-span-2">Empleado<select className="field-input" name="employee_id" required defaultValue=""><option disabled value="">Seleccionar</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}</select></label>
-        <label className="field-label">Concepto<select className="field-input" name="kind" defaultValue="advance"><option value="advance">Adelanto</option><option value="bonus">Bono</option><option value="deduction">Descuento</option></select></label>
-        <label className="field-label">Importe<input className="field-input" inputMode="decimal" min="0.01" name="amount" required step="0.01" type="number" /></label>
+        <label className="field-label form-span-2">Empleado<select className="field-input" name="employee_id" required onChange={(event) => setEmployeeId(event.target.value)} value={employeeId}><option disabled value="">Seleccionar</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}</select></label>
+        <label className="field-label">Concepto<input className="field-input" disabled value="Adelanto" /></label>
+        <label className="field-label">Importe<input className="field-input" inputMode="decimal" min="0.01" name="amount" onChange={(event) => setAmount(event.target.value)} required step="0.01" type="number" value={amount} /></label>
         <label className="field-label">Período<input className="field-input" defaultValue={month} name="period_month" required type="month" /></label>
-        <label className="field-label">Fecha de pago<input className="field-input" defaultValue={localToday()} name="paid_at" type="date" /></label>
+        <label className="field-label">Fecha de pago<input className="field-input" defaultValue={localToday()} max={localToday()} name="paid_at" required type="date" /></label>
+        <label className="field-label form-span-2">Medio de egreso<select className="field-input" defaultValue="" name="payment_method_id" required><option disabled value="">Seleccionar</option>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.name}</option>)}</select></label>
         <label className="field-label form-span-2">Nota<textarea className="field-textarea" maxLength={500} name="notes" rows={2} /></label>
       </div>
+      {available !== null ? <p className={aboveAvailable ? "form-error" : "payroll-advance-hint"}>Saldo provisorio disponible: {ars.format(available)}{aboveAvailable ? ". El importe supera lo generado hasta ahora." : ""}</p> : null}
       {(state.error || state.message) && <p className={state.error ? "form-error" : "form-success"}>{state.error ?? state.message}</p>}
-      <button className="button button-primary" disabled={pending || employees.length === 0} type="submit"><Save size={17} /> {pending ? "Guardando..." : "Registrar movimiento"}</button>
+      <button className="button button-primary" disabled={pending || employees.length === 0 || paymentMethods.length === 0 || aboveAvailable} type="submit"><Save size={17} /> {pending ? "Registrando..." : "Registrar adelanto"}</button>
+    </form>
+  );
+}
+
+export function VoidPayrollAdvanceForm({ id }: { id: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(voidPayrollAdvanceAction, {});
+  return (
+    <form action={action} className="entity-form">
+      <input name="id" type="hidden" value={id} />
+      <label className="field-label">Motivo de anulación<input className="field-input" maxLength={500} minLength={3} name="reason" required /></label>
+      <p className="payroll-advance-hint">El registro quedará visible y se acreditará el mismo importe en la caja original.</p>
+      {(state.error || state.message) && <p className={state.error ? "form-error" : "form-success"}>{state.error ?? state.message}</p>}
+      <button className="button button-danger" disabled={pending} type="submit"><Ban size={16} /> {pending ? "Anulando..." : "Confirmar anulación"}</button>
+    </form>
+  );
+}
+
+export function VoidPayrollSettlementForm({ id }: { id: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(voidPayrollSettlementAction, {});
+  return (
+    <form action={action} className="entity-form">
+      <input name="id" type="hidden" value={id} />
+      <label className="field-label">Motivo de anulación<input className="field-input" maxLength={500} minLength={3} name="reason" required /></label>
+      <p className="payroll-advance-hint">La liquidación original quedará en el historial. Se acreditarán contramovimientos en las mismas cajas y podrás liquidar de nuevo el período.</p>
+      {(state.error || state.message) && <p className={state.error ? "form-error" : "form-success"}>{state.error ?? state.message}</p>}
+      <button className="button button-danger" disabled={pending} type="submit"><Ban size={16} /> {pending ? "Anulando..." : "Confirmar anulación"}</button>
     </form>
   );
 }

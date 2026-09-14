@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireActionContext } from "@/lib/actions/context";
+import { dateInputValueInArgentina } from "@/lib/date";
 import {
   friendlyDatabaseError,
   textField,
@@ -72,53 +73,94 @@ export async function toggleEmployeeAction(formData: FormData) {
   revalidatePath("/app/personal");
 }
 
-const payrollSchema = z.object({
+const advanceSchema = z.object({
   employee_id: z.uuid(),
-  kind: z.enum(["advance", "bonus", "deduction"]),
   amount: z.number().positive().max(999_999_999),
-  period_month: z.string().regex(/^\d{4}-\d{2}$/),
-  paid_at: z.union([z.iso.date(), z.literal("")]),
+  period_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  paid_at: z.iso.date(),
+  payment_method_id: z.uuid(),
   notes: z.string().trim().max(500),
 });
 
-export async function createPayrollMovementAction(
+export async function registerPayrollAdvanceAction(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const parsed = payrollSchema.safeParse({
+  const rawAmount = textField(formData, "amount").replace(",", ".");
+  const parsed = advanceSchema.safeParse({
     employee_id: textField(formData, "employee_id"),
-    kind: textField(formData, "kind"),
-    amount: Number(textField(formData, "amount").replace(",", ".")),
+    amount: rawAmount === "" ? Number.NaN : Number(rawAmount),
     period_month: textField(formData, "period_month"),
     paid_at: textField(formData, "paid_at"),
+    payment_method_id: textField(formData, "payment_method_id"),
     notes: textField(formData, "notes"),
   });
-  if (!parsed.success) return { error: "Revisá el empleado, concepto, período e importe." };
+  if (!parsed.success || !/^\d+(?:\.\d{1,2})?$/.test(rawAmount)) {
+    return { error: "Revisá empleado, período, fecha, medio e importe del adelanto." };
+  }
 
-  const { organization, supabase, userId } = await requireActionContext(["owner", "admin"]);
-  const { error } = await supabase.from("payroll_movements").insert({
-    organization_id: organization.id,
-    employee_id: parsed.data.employee_id,
-    kind: parsed.data.kind,
-    amount: parsed.data.amount,
-    period_month: `${parsed.data.period_month}-01`,
-    paid_at: parsed.data.paid_at || null,
-    notes: parsed.data.notes || null,
-    created_by: userId,
+  const { organization, supabase } = await requireActionContext(["owner", "admin"]);
+  const { error } = await supabase.rpc("register_payroll_advance", {
+    p_organization_id: organization.id,
+    p_employee_id: parsed.data.employee_id,
+    p_period_month: `${parsed.data.period_month}-01`,
+    p_amount: parsed.data.amount,
+    p_paid_at: parsed.data.paid_at,
+    p_payment_method_id: parsed.data.payment_method_id,
+    p_notes: parsed.data.notes || undefined,
   });
   if (error) return { error: friendlyDatabaseError(error) };
   revalidatePath("/app/personal");
-  return { message: "Movimiento de sueldo registrado." };
+  revalidatePath("/app/mi-sueldo");
+  revalidatePath("/app/caja");
+  revalidatePath("/app/reportes");
+  return { message: "Adelanto registrado. El importe se descontó de caja y del saldo salarial." };
 }
 
-export async function deletePayrollMovementAction(formData: FormData) {
+export async function voidPayrollAdvanceAction(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const id = textField(formData, "id");
-  if (!z.uuid().safeParse(id).success) return;
+  const reason = textField(formData, "reason");
+  if (!z.uuid().safeParse(id).success || reason.length < 3 || reason.length > 500) {
+    return { error: "Indicá un motivo de al menos tres caracteres." };
+  }
   const { organization, supabase } = await requireActionContext(["owner", "admin"]);
-  const { data, error } = await supabase.from("payroll_movements").delete().eq("id", id).eq("organization_id", organization.id).select("id").maybeSingle();
-  if (error) throw new Error(friendlyDatabaseError(error));
-  if (!data) throw new Error("El movimiento ya no existe o no está disponible.");
+  const { error } = await supabase.rpc("void_payroll_advance", {
+    p_organization_id: organization.id,
+    p_movement_id: id,
+    p_reason: reason,
+  });
+  if (error) return { error: friendlyDatabaseError(error) };
   revalidatePath("/app/personal");
+  revalidatePath("/app/mi-sueldo");
+  revalidatePath("/app/caja");
+  revalidatePath("/app/reportes");
+  return { message: "Adelanto anulado. La caja recibió el contramovimiento." };
+}
+
+export async function voidPayrollSettlementAction(
+  _previousState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = textField(formData, "id");
+  const reason = textField(formData, "reason").trim();
+  if (!z.uuid().safeParse(id).success || reason.length < 3 || reason.length > 500) {
+    return { error: "Indicá un motivo de al menos tres caracteres." };
+  }
+  const { organization, supabase } = await requireActionContext(["owner", "admin"]);
+  const { error } = await supabase.rpc("void_payroll_settlement", {
+    p_organization_id: organization.id,
+    p_settlement_id: id,
+    p_reason: reason,
+  });
+  if (error) return { error: friendlyDatabaseError(error) };
+  revalidatePath("/app/personal");
+  revalidatePath("/app/mi-sueldo");
+  revalidatePath("/app/caja");
+  revalidatePath("/app/reportes");
+  return { message: "Liquidación anulada. Los importes se reintegraron a sus cajas y el período puede liquidarse nuevamente." };
 }
 
 const compensationSchema = z.object({
@@ -160,6 +202,10 @@ export async function saveCompensationAction(
 const settlementSchema = z.object({
   employee_id: z.uuid(),
   period_month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  payments: z.array(z.object({
+    payment_method_id: z.uuid(),
+    amount: z.number().positive().max(999_999_999),
+  })).max(2),
   notes: z.string().trim().max(500),
 });
 
@@ -167,24 +213,35 @@ export async function settlePayrollAction(
   _previousState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  let decodedPayments: unknown;
+  try {
+    decodedPayments = JSON.parse(textField(formData, "payments"));
+  } catch {
+    return { error: "La distribución del pago no es válida." };
+  }
   const parsed = settlementSchema.safeParse({
     employee_id: textField(formData, "employee_id"),
     period_month: textField(formData, "period_month"),
+    payments: decodedPayments,
     notes: textField(formData, "notes"),
   });
-  if (!parsed.success) return { error: "Revisá el empleado y el período." };
+  if (!parsed.success) return { error: "Revisá empleado, período e importes del pago." };
 
   const { organization, supabase } = await requireActionContext(["owner", "admin"]);
-  const { error } = await supabase.rpc("settle_employee_payroll", {
+  const { error } = await supabase.rpc("settle_and_pay_employee_payroll", {
     p_organization_id: organization.id,
     p_employee_id: parsed.data.employee_id,
     p_period_month: `${parsed.data.period_month}-01`,
+    p_paid_at: dateInputValueInArgentina(),
+    p_payments: parsed.data.payments,
     p_notes: parsed.data.notes || undefined,
   });
   if (error) return { error: friendlyDatabaseError(error) };
   revalidatePath("/app/personal");
   revalidatePath("/app/mi-sueldo");
-  return { message: "Sueldo liquidado y snapshot histórico guardado." };
+  revalidatePath("/app/caja");
+  revalidatePath("/app/reportes");
+  return { message: "Liquidación registrada, pagada y descontada de caja." };
 }
 
 const paymentSchema = z.object({

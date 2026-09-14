@@ -45,11 +45,38 @@ export function friendlyDatabaseError(error: { code?: string; message: string })
   if (error.message.includes("Cash tracking must be configured")) {
     return "Primero hay que configurar los saldos iniciales de caja.";
   }
+  if (error.message.includes("Payment date belongs to a closed cash day")) {
+    return "Esa fecha ya tiene un cierre de caja. Elegí un día que todavía esté abierto.";
+  }
+  if (error.message.includes("Advance exceeds the salary generated")) {
+    return "El adelanto supera el sueldo generado para ese período.";
+  }
+  if (error.message.includes("Salary conditions are not configured")) {
+    return "Primero configurá el sueldo de la empleada para ese mes.";
+  }
+  if (error.message.includes("Salary advances must be registered in Personal")) {
+    return "Los adelantos de sueldo se registran desde Personal.";
+  }
+  if (error.message.includes("Salary payments use Cash or Transfer")) {
+    return "Para sueldos usá Efectivo o Transferencia.";
+  }
+  if (error.message.includes("A settled period cannot be changed")) {
+    return "No se puede anular un adelanto incluido en una liquidación cerrada.";
+  }
   if (error.message.includes("Payroll payment allocations must equal")) {
     return "La suma de los medios de pago debe coincidir exactamente con el sueldo liquidado.";
   }
   if (error.message.includes("Payroll payment allocations are invalid")) {
     return "Revisá los medios de pago y sus importes.";
+  }
+  if (error.message.includes("Only a paid settlement can be cancelled")) {
+    return "Solo se puede anular una liquidación ya pagada.";
+  }
+  if (error.message.includes("The current cash day is already closed")) {
+    return "La caja de hoy ya está cerrada. La corrección debe hacerse en un día abierto.";
+  }
+  if (error.message.includes("A cancellation reason is required")) {
+    return "Escribí un motivo de anulación de al menos tres caracteres.";
   }
   if (error.message.includes("Salary expenses require an employee")) {
     return "Elegí la empleada y el mes donde se descontará el adelanto.";

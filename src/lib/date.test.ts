@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   argentinaLocalDateTimeToIso,
+  dateInputValueInArgentina,
   dateTimeInputValueInArgentina,
   isIsoDate,
   isYearMonth,
@@ -13,6 +14,10 @@ describe("Argentina date helpers", () => {
     expect(
       dateTimeInputValueInArgentina(new Date("2026-08-04T15:30:00.000Z")),
     ).toBe("2026-08-04T12:30");
+  });
+
+  it("uses the Argentine business date when UTC is already the next day", () => {
+    expect(dateInputValueInArgentina(new Date("2026-09-15T01:30:00.000Z"))).toBe("2026-09-14");
   });
 
   it("converts a valid Buenos Aires local date-time to UTC", () => {
