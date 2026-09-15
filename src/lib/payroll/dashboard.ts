@@ -28,6 +28,7 @@ export type PayrollAdjustment = {
   occurredOn: string;
   description: string;
   sourceType: "manual" | "expense";
+  paymentMethodName: string | null;
 };
 
 export type PayrollEmployeeSummary = {

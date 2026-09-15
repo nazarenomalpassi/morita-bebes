@@ -64,6 +64,16 @@ export async function saveExpenseAction(
     return { error: "Los adelantos de sueldo se registran desde Personal." };
   }
 
+  const { data: closedCashDay, error: closureError } = await supabase
+    .from("daily_cash_closures")
+    .select("id")
+    .eq("organization_id", organization.id)
+    .eq("business_date", parsed.data.expense_date)
+    .maybeSingle();
+  if (closureError) {
+    return { error: "No pudimos verificar el cierre de caja de esa fecha." };
+  }
+
   const payload = {
     description: parsed.data.description,
     amount: parsed.data.amount,
@@ -93,6 +103,13 @@ export async function saveExpenseAction(
   revalidatePath("/app/caja");
   revalidatePath("/app/personal");
   revalidatePath("/app/mi-sueldo");
+  if (closedCashDay) {
+    return {
+      message: parsed.data.id
+        ? "Gasto actualizado. El ajuste impactó en la caja abierta actual sin modificar el cierre histórico."
+        : "Gasto registrado con su fecha original. La salida impactó en la caja abierta actual sin modificar el cierre histórico.",
+    };
+  }
   return { message: parsed.data.id ? "Gasto actualizado." : "Gasto registrado." };
 }
 

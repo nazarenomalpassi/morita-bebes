@@ -203,6 +203,12 @@
   font-size: 0.66rem;
 }
 
+.payroll-adjustment-details .payroll-adjustment-payment,
+.compact-list .payroll-adjustment-payment {
+  color: var(--ink);
+  font-weight: 750;
+}
+
 .payroll-month-progress {
   padding: 0.9rem 1.1rem;
 }
@@ -901,7 +907,8 @@ select.field-input {
 }
 
 .form-error,
-.form-success {
+.form-success,
+.form-info {
   max-width: 100%;
   border-radius: 6px;
   padding: 0.7rem 0.8rem;
@@ -918,6 +925,12 @@ select.field-input {
 .form-success {
   background: #e6f2ed;
   color: var(--success);
+}
+
+.form-info {
+  border: 1px solid var(--lavender);
+  background: var(--surface-soft);
+  color: var(--ink);
 }
 
 .login-page {

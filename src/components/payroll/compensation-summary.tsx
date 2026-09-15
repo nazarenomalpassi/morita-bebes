@@ -74,7 +74,15 @@ export function CompensationSummary({
                 <div>
                   {adjustments.map((adjustment) => (
                     <p key={adjustment.id}>
-                      <span><strong>{adjustment.description}</strong><small>{localDate(adjustment.occurredOn)} · {adjustment.sourceType === "expense" ? "Registro anterior" : "Personal"}</small></span>
+                      <span>
+                        <strong>{adjustment.description}</strong>
+                        <small>{localDate(adjustment.occurredOn)} · {adjustment.sourceType === "expense" ? "Registro anterior" : "Personal"}</small>
+                        {adjustment.kind === "advance" ? (
+                          <small className="payroll-adjustment-payment">
+                            Medio de egreso: {adjustment.paymentMethodName ?? "sin registrar (histórico)"}
+                          </small>
+                        ) : null}
+                      </span>
                       <strong className={adjustment.kind === "bonus" ? "positive-value" : "negative-value"}>{adjustment.kind === "bonus" ? "+ " : "- "}{ars.format(adjustment.amount)}</strong>
                     </p>
                   ))}

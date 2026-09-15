@@ -32,16 +32,19 @@ export function ExpenseForm({
   paymentMethods,
   values = {},
   canChooseDate = true,
+  closedThrough = null,
 }: {
   categories: CategoryOption[];
   paymentMethods: Option[];
   values?: ExpenseValues;
   canChooseDate?: boolean;
+  closedThrough?: string | null;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(saveExpenseAction, {});
   const initialDate = values.expense_date ?? today();
   const [expenseDate, setExpenseDate] = useState(initialDate);
   const [categoryId, setCategoryId] = useState(values.category_id ?? "");
+  const usesCurrentCashDay = Boolean(closedThrough && expenseDate <= closedThrough);
   return (
     <form action={action} className="entity-form">
       <input name="id" type="hidden" value={values.id ?? ""} />
@@ -79,6 +82,11 @@ export function ExpenseForm({
           <textarea className="field-textarea" defaultValue={values.notes ?? ""} maxLength={1000} name="notes" rows={2} />
         </label>
       </div>
+      {canChooseDate && usesCurrentCashDay ? (
+        <p className="form-info">
+          Esa fecha ya pertenece a un período de caja cerrado. El gasto conservará la fecha elegida y la salida de dinero se registrará en la caja abierta actual; el cierre histórico no se modifica.
+        </p>
+      ) : null}
       {(state.error || state.message) && <p className={state.error ? "form-error" : "form-success"}>{state.error ?? state.message}</p>}
       <button className="button button-primary" disabled={pending} type="submit"><Save size={17} /> {pending ? "Guardando..." : "Guardar gasto"}</button>
     </form>

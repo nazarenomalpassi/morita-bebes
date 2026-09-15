@@ -52,7 +52,11 @@ describe("enrichPayrollDashboard", () => {
         period_month: "2026-08-01",
         notes: "Adelanto desde gastos",
         expense_id: "expense-1",
-        expenses: { expense_date: "2026-08-12", description: "Adelanto de agosto" },
+        expenses: {
+          expense_date: "2026-08-12",
+          description: "Adelanto de agosto",
+          payment_methods: { name: "Transferencia" },
+        },
       },
       {
         id: "bonus-1",
@@ -91,6 +95,8 @@ describe("enrichPayrollDashboard", () => {
       description: "Adelanto de agosto",
       occurredOn: "2026-08-12",
       sourceType: "expense",
+      paymentMethodName: "Transferencia",
     });
+    expect(result.employees[0].adjustments[1].paymentMethodName).toBeNull();
   });
 });

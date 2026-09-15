@@ -36,13 +36,13 @@ export default async function MyPayrollPage({
     }),
     supabase
       .from("payroll_settlements")
-      .select("id, employee_id, period_month, base_salary, commission_base, commission_percentage, commission_amount, gross_salary, bonus_amount, advance_amount, deduction_amount, net_salary, status, settled_at, paid_at, payment_method, payroll_settlement_adjustments(id, kind, amount, occurred_on, description, source_type)")
+      .select("id, employee_id, period_month, base_salary, commission_base, commission_percentage, commission_amount, gross_salary, bonus_amount, advance_amount, deduction_amount, net_salary, status, settled_at, paid_at, payment_method, payroll_settlement_adjustments(id, kind, amount, occurred_on, description, source_type, payroll_movements(payment_methods(name), expenses(payment_methods(name))))")
       .eq("organization_id", organization.id)
       .order("period_month", { ascending: false })
       .limit(24),
     supabase
       .from("payroll_movements")
-      .select("id, employee_id, kind, amount, paid_at, period_month, notes, expense_id, voided_at, expenses(expense_date, description)")
+      .select("id, employee_id, kind, amount, paid_at, period_month, notes, expense_id, voided_at, payment_methods(name), expenses(expense_date, description, payment_methods(name))")
       .eq("organization_id", organization.id)
       .eq("period_month", periodStart)
       .neq("kind", "salary")

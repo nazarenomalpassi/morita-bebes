@@ -13,7 +13,12 @@ type LiveMovement = {
   notes: string | null;
   expense_id: string | null;
   voided_at?: string | null;
-  expenses?: { expense_date: string; description: string } | null;
+  payment_methods?: { name: string } | null;
+  expenses?: {
+    expense_date: string;
+    description: string;
+    payment_methods?: { name: string } | null;
+  } | null;
 };
 
 type SettlementAdjustment = {
@@ -23,6 +28,10 @@ type SettlementAdjustment = {
   occurred_on: string;
   description: string;
   source_type: string;
+  payroll_movements?: {
+    payment_methods?: { name: string } | null;
+    expenses?: { payment_methods?: { name: string } | null } | null;
+  } | null;
 };
 
 type SettlementRow = {
@@ -46,6 +55,9 @@ function liveAdjustment(movement: LiveMovement): PayrollAdjustment | null {
     occurredOn: movement.expenses?.expense_date ?? movement.paid_at ?? movement.period_month,
     description: movement.expenses?.description ?? movement.notes ?? "Ajuste salarial",
     sourceType: movement.expense_id ? "expense" : "manual",
+    paymentMethodName: movement.payment_methods?.name
+      ?? movement.expenses?.payment_methods?.name
+      ?? null,
   };
 }
 
@@ -58,6 +70,9 @@ function snapshotAdjustment(adjustment: SettlementAdjustment): PayrollAdjustment
     occurredOn: adjustment.occurred_on,
     description: adjustment.description,
     sourceType: adjustment.source_type === "expense" ? "expense" : "manual",
+    paymentMethodName: adjustment.payroll_movements?.payment_methods?.name
+      ?? adjustment.payroll_movements?.expenses?.payment_methods?.name
+      ?? null,
   };
 }
 
