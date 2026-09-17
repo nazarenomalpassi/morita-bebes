@@ -3,6 +3,8 @@
 import { Save } from "lucide-react";
 import { useActionState } from "react";
 
+import { formatPriceInput } from "@/lib/inventory/prices";
+
 import type { InventoryActionState } from "./action-state";
 import { initialInventoryActionState } from "./action-state";
 import { ActionFeedback, FieldError } from "./action-feedback";
@@ -180,13 +182,13 @@ export function ProductForm({
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Costo *" name="cost_price" state={state}>
-            <input className="field-input" defaultValue={product?.cost_price ?? 0} inputMode="decimal" min="0" name="cost_price" required step="0.01" type="number" />
+            <span className="product-price-input-wrap"><span aria-hidden="true">$</span><input autoComplete="off" defaultValue={formatPriceInput(product?.cost_price ?? 0)} inputMode="decimal" name="cost_price" onFocus={(event) => event.currentTarget.select()} required type="text" /></span>
           </Field>
           <Field label="Precio minorista *" name="retail_price" state={state}>
-            <input className="field-input" defaultValue={product?.retail_price ?? 0} inputMode="decimal" min="0" name="retail_price" required step="0.01" type="number" />
+            <span className="product-price-input-wrap"><span aria-hidden="true">$</span><input autoComplete="off" defaultValue={formatPriceInput(product?.retail_price ?? 0)} inputMode="decimal" name="retail_price" onFocus={(event) => event.currentTarget.select()} required type="text" /></span>
           </Field>
           <Field label="Precio mayorista" name="wholesale_price" state={state}>
-            <input className="field-input" defaultValue={product?.wholesale_price ?? ""} inputMode="decimal" min="0" name="wholesale_price" step="0.01" type="number" />
+            <span className="product-price-input-wrap"><span aria-hidden="true">$</span><input autoComplete="off" defaultValue={formatPriceInput(product?.wholesale_price ?? null)} inputMode="decimal" name="wholesale_price" onFocus={(event) => event.currentTarget.select()} placeholder="Sin cargar" type="text" /></span>
           </Field>
           <Field label="Cantidad mínima mayorista *" name="wholesale_min_quantity" state={state}>
             <input className="field-input" defaultValue={product?.wholesale_min_quantity ?? 1} inputMode="decimal" min="0.001" name="wholesale_min_quantity" required step="0.001" type="number" />

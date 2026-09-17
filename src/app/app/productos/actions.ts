@@ -20,7 +20,10 @@ import {
   textValue,
   unauthenticatedState,
 } from "@/components/inventory/server-utils";
+import { parsePriceInput, type ProductPrices } from "@/lib/inventory/prices";
 import type { Database } from "@/types/database";
+
+export type PriceUpdateResult = InventoryActionState & { prices?: ProductPrices };
 
 type ProductInput = {
   barcode: string | null;
@@ -69,9 +72,10 @@ function parseProduct(formData: FormData): {
   const barcodeValue = normalizeProductIdentifier(typeof rawBarcode === "string" ? rawBarcode : "");
   const barcode = barcodeValue || null;
   const unit = textValue(formData, "unit");
-  const costPrice = numberValue(formData, "cost_price");
-  const retailPrice = numberValue(formData, "retail_price");
-  const wholesalePrice = optionalNumberValue(formData, "wholesale_price");
+  const costPrice = parsePriceInput(textValue(formData, "cost_price"));
+  const retailPrice = parsePriceInput(textValue(formData, "retail_price"));
+  const wholesaleRaw = textValue(formData, "wholesale_price");
+  const wholesalePrice = parsePriceInput(wholesaleRaw);
   const wholesaleMinQuantity = numberValue(formData, "wholesale_min_quantity");
   const minStock = numberValue(formData, "min_stock");
   const targetStock = optionalNumberValue(formData, "target_stock");
@@ -93,14 +97,14 @@ function parseProduct(formData: FormData): {
   if (!allowedUnits.has(unit)) {
     errors.unit = "Seleccioná una unidad válida.";
   }
-  if (!Number.isFinite(costPrice) || costPrice < 0) {
+  if (costPrice === null) {
     errors.cost_price = "El costo debe ser cero o un importe positivo.";
   }
-  if (!Number.isFinite(retailPrice) || retailPrice < 0) {
+  if (retailPrice === null) {
     errors.retail_price = "El precio debe ser cero o un importe positivo.";
   }
-  if (wholesalePrice !== null && (!Number.isFinite(wholesalePrice) || wholesalePrice < 0)) {
-    errors.wholesale_price = "El precio mayorista debe ser positivo.";
+  if (wholesaleRaw && wholesalePrice === null) {
+    errors.wholesale_price = "El precio mayorista debe ser cero o un importe positivo.";
   }
   if (!Number.isFinite(wholesaleMinQuantity) || wholesaleMinQuantity <= 0) {
     errors.wholesale_min_quantity = "La cantidad mayorista debe ser mayor a cero.";
@@ -136,7 +140,7 @@ function parseProduct(formData: FormData): {
       brand_id: brandId,
       category_id: categoryId,
       commercial_description: commercialDescription,
-      cost_price: costPrice,
+      cost_price: costPrice!,
       default_supplier_id: supplierId,
       description,
       image_path: imagePath,
@@ -146,7 +150,7 @@ function parseProduct(formData: FormData): {
       min_stock: minStock,
       target_stock: targetStock,
       name,
-      retail_price: retailPrice,
+      retail_price: retailPrice!,
       sku,
       seo_description: seoDescription,
       seo_title: seoTitle,
@@ -370,6 +374,61 @@ export async function updateProductAction(
     message: stockDelta === 0
       ? "Producto actualizado correctamente."
       : "Producto y stock actualizados correctamente.",
+  };
+}
+
+export async function updateProductPricesAction(
+  productId: string,
+  formData: FormData,
+): Promise<PriceUpdateResult> {
+  if (!isUuid(productId)) return { status: "error", message: "Producto inválido." };
+  const context = await requireInventoryContext();
+  if (!context) return unauthenticatedState;
+
+  const costRaw = textValue(formData, "cost_price");
+  const retailRaw = textValue(formData, "retail_price");
+  const wholesaleRaw = textValue(formData, "wholesale_price");
+  const costPrice = parsePriceInput(costRaw);
+  const retailPrice = parsePriceInput(retailRaw);
+  const wholesalePrice = parsePriceInput(wholesaleRaw);
+  const fieldErrors: Record<string, string> = {};
+  if (costPrice === null) fieldErrors.cost_price = "Ingresá un costo válido de cero o más.";
+  if (retailPrice === null) fieldErrors.retail_price = "Ingresá un precio minorista válido de cero o más.";
+  if (wholesaleRaw && wholesalePrice === null) {
+    fieldErrors.wholesale_price = "Ingresá un precio mayorista válido o dejalo vacío.";
+  }
+  if (Object.keys(fieldErrors).length) {
+    return { status: "error", message: "Revisá los importes indicados.", fieldErrors };
+  }
+
+  const { data, error } = await context.supabase
+    .from("products")
+    .update({
+      cost_price: costPrice!,
+      retail_price: retailPrice!,
+      wholesale_price: wholesalePrice,
+    })
+    .eq("id", productId)
+    .eq("organization_id", context.organization.id)
+    .select("cost_price, retail_price, wholesale_price")
+    .maybeSingle();
+
+  if (error) return databaseErrorState(error);
+  if (!data) return { status: "error", message: "El producto no existe o no tenés acceso." };
+
+  revalidatePath(`/app/productos/${productId}`);
+  revalidatePath(`/app/productos/${productId}/editar`);
+  revalidatePath("/app/ventas");
+  revalidatePath("/tienda", "layout");
+
+  return {
+    status: "success",
+    message: "Precios actualizados correctamente.",
+    prices: {
+      costPrice: Number(data.cost_price),
+      retailPrice: Number(data.retail_price),
+      wholesalePrice: data.wholesale_price === null ? null : Number(data.wholesale_price),
+    },
   };
 }
 

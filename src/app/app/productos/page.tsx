@@ -12,15 +12,11 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ProductPriceCells } from "@/components/inventory/product-price-cells";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const PAGE_SIZE = 50;
-const money = new Intl.NumberFormat("es-AR", {
-  currency: "ARS",
-  maximumFractionDigits: 2,
-  style: "currency",
-});
 const quantity = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 3 });
 
 export const dynamic = "force-dynamic";
@@ -78,7 +74,7 @@ export default async function ProductsPage({
   const from = (currentPage - 1) * PAGE_SIZE;
   let productsQuery = supabase
     .from("products")
-    .select("id, name, sku, retail_price, current_stock, min_stock, needs_restock, is_active, category_id, default_supplier_id, categories(name), brands(name), suppliers(business_name)", { count: "exact" })
+    .select("id, name, sku, cost_price, retail_price, wholesale_price, current_stock, min_stock, needs_restock, is_active, category_id, default_supplier_id, categories(name), brands(name), suppliers(business_name)", { count: "exact" })
     .eq("organization_id", organization.id);
   if (q) {
     const pattern = `%${q}%`;
@@ -159,14 +155,14 @@ export default async function ProductsPage({
       {products?.length ? (
         <>
           <div className="data-table-wrap" data-mobile-cards>
-            <table className="data-table min-w-[56rem]">
+            <table className="data-table product-price-table">
               <thead>
                 <tr>
                   <th>Producto</th>
-                  <th>SKU</th>
-                  <th>Proveedor</th>
-                  <th>Precio</th>
                   <th>Stock</th>
+                  <th>Costo</th>
+                  <th>Minorista</th>
+                  <th>Mayorista</th>
                   <th>Estado</th>
                   <th><span className="sr-only">Acciones</span></th>
                 </tr>
@@ -176,24 +172,26 @@ export default async function ProductsPage({
                   <tr className={product.is_active ? "" : "opacity-60"} key={product.id}>
                     <td data-label="Producto">
                       <strong>{product.name}</strong>
-                      <small>{product.brands?.name ?? "Sin marca"} · {product.categories?.name ?? "Sin categoría"}</small>
+                      <small>SKU {product.sku} · {product.brands?.name ?? "Sin marca"} · {product.categories?.name ?? "Sin categoría"}</small>
+                      <small>{product.suppliers?.business_name ?? "Proveedor pendiente"}</small>
                     </td>
-                    <td className="font-mono text-xs" data-label="SKU">{product.sku}</td>
-                    <td data-label="Proveedor">{product.suppliers?.business_name ?? <span className="text-[var(--danger)]">Pendiente</span>}</td>
-                    <td data-label="Precio">{money.format(Number(product.retail_price))}</td>
                     <td data-label="Stock">{quantity.format(Number(product.current_stock))} / mín. {quantity.format(Number(product.min_stock))}</td>
-                    <td data-label="Estado">
-                      {!product.is_active ? (
+                    <ProductPriceCells
+                      initialPrices={{
+                        costPrice: Number(product.cost_price),
+                        retailPrice: Number(product.retail_price),
+                        wholesalePrice: product.wholesale_price === null ? null : Number(product.wholesale_price),
+                      }}
+                      productId={product.id}
+                      productName={product.name}
+                      status={!product.is_active ? (
                         <span className="table-status text-[var(--ink-muted)]"><CircleOff size={15} /> Inactivo</span>
                       ) : product.needs_restock ? (
                         <span className="table-status table-status-alert"><AlertTriangle size={15} /> Reponer</span>
                       ) : (
                         <span className="table-status table-status-ok">En orden</span>
                       )}
-                    </td>
-                    <td className="text-right" data-label="">
-                      <Link className="font-bold text-[var(--plum)] no-underline hover:underline" href={`/app/productos/${product.id}`}>Ver</Link>
-                    </td>
+                    />
                   </tr>
                 ))}
               </tbody>
