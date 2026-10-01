@@ -1,7 +1,8 @@
 "use client";
 
 import { Download, RefreshCw, Share2, WifiOff, X } from "lucide-react";
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useModalFocus } from "@/lib/ui/use-modal-focus";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -38,6 +39,9 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [showIosHelp, setShowIosHelp] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [online, setOnline] = useState(true);
+  const iosSheetRef = useRef<HTMLElement>(null);
+  const closeIosHelp = useCallback(() => setShowIosHelp(false), []);
+  useModalFocus(showIosHelp, iosSheetRef, closeIosHelp);
 
   useEffect(() => {
     const navigatorWithHints = navigator as NavigatorWithPwaHints;
@@ -72,6 +76,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("offline", handleOffline);
 
     if ("serviceWorker" in navigator) {
+      let hasController = Boolean(navigator.serviceWorker.controller);
       void navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" })
         .then((registration) => {
           registrationRef.current = registration;
@@ -88,6 +93,11 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
         .catch(() => undefined);
 
       const handleControllerChange = () => {
+        // The first installation must not discard a form already being filled in.
+        if (!hasController) {
+          hasController = true;
+          return;
+        }
         if (reloadingRef.current) return;
         reloadingRef.current = true;
         window.location.reload();
@@ -155,7 +165,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       ) : null}
       {showIosHelp ? (
         <div className="pwa-sheet-backdrop" onClick={() => setShowIosHelp(false)} role="presentation">
-          <section aria-labelledby="pwa-ios-title" aria-modal="true" className="pwa-install-sheet" onClick={(event) => event.stopPropagation()} role="dialog">
+          <section aria-labelledby="pwa-ios-title" aria-modal="true" className="pwa-install-sheet" onClick={(event) => event.stopPropagation()} ref={iosSheetRef} role="dialog" tabIndex={-1}>
             <button aria-label="Cerrar" className="icon-button pwa-sheet-close" onClick={() => setShowIosHelp(false)} type="button"><X size={18} /></button>
             <span className="pwa-sheet-icon"><Share2 aria-hidden="true" size={24} /></span>
             <h2 id="pwa-ios-title">Agregar a inicio</h2>

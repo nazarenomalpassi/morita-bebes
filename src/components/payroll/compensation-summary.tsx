@@ -96,7 +96,7 @@ export function CompensationSummary({
               <span><CalendarDays size={15} /> Avance del período</span>
               <strong>{meta.daysElapsed}/{meta.daysInMonth} días</strong>
             </div>
-            <div aria-label={`${progress}% del mes transcurrido`} className="payroll-progress-track"><span style={{ width: `${progress}%` }} /></div>
+            <div aria-label="Avance del mes" aria-valuemax={100} aria-valuemin={0} aria-valuenow={progress} className="payroll-progress-track" role="progressbar"><span style={{ width: `${progress}%` }} /></div>
           </div>
 
           {meta.projectionAvailable && employee.projectedSalary !== null ? (

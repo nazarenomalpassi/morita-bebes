@@ -59,7 +59,7 @@ export default async function CustomersPage({
           <span className="sr-only">Buscar clientes</span>
           <input defaultValue={query} name="q" placeholder="Buscar por nombre o teléfono" type="search" />
         </label>
-        <select className="field-input filter-select" defaultValue={showInactive ? "todos" : "activos"} name="estado">
+        <select aria-label="Estado de clientes" className="field-input filter-select" defaultValue={showInactive ? "todos" : "activos"} name="estado">
           <option value="activos">Solo activos</option>
           <option value="todos">Todos</option>
         </select>

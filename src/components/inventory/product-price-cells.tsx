@@ -114,7 +114,7 @@ export function ProductPriceCells({
         </div>
         <button aria-label="Cerrar" className="icon-button" disabled={pending} onClick={closeEditor} title="Cerrar" type="button"><X size={18} /></button>
       </div>
-      <form noValidate onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} onSubmit={submitPrices}>
+      <form noValidate onKeyDown={(event) => { if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault(); }} onSubmit={submitPrices}>
         {([
           ["cost", "cost_price", "Precio de costo"],
           ["retail", "retail_price", "Precio minorista"],

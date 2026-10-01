@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { Link2, Truck } from "lucide-react";
-import { useActionState } from "react";
+
 
 import type { InventoryActionState } from "./action-state";
 import { initialInventoryActionState } from "./action-state";
@@ -27,7 +29,7 @@ export function ProductSupplierForm({
   currentSupplierId: string | null;
   suppliers: SupplierOption[];
 }) {
-  const [state, formAction] = useActionState(action, initialInventoryActionState);
+  const [state, formAction] = useSubmissionState(action, initialInventoryActionState);
 
   return (
     <div className="mt-4 rounded-[8px] border border-[var(--line)] bg-white p-4">

@@ -57,12 +57,15 @@ export async function saveCustomerAction(
         .update(payload)
         .eq("id", parsed.data.id)
         .eq("organization_id", organization.id)
+        .select("id")
+        .maybeSingle()
     : await supabase.from("customers").insert({
         ...payload,
         organization_id: organization.id,
-      });
+      }).select("id").single();
 
   if (result.error) return { error: friendlyDatabaseError(result.error) };
+  if (!result.data) return { error: "El cliente ya no existe o no está disponible." };
 
   revalidatePath("/app/clientes");
   revalidatePath("/app/ventas");
@@ -75,13 +78,15 @@ export async function toggleCustomerAction(formData: FormData) {
   if (!z.uuid().safeParse(id).success) return;
 
   const { organization, supabase } = await requireActionContext();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("customers")
     .update({ is_active: nextStatus })
     .eq("id", id)
-    .eq("organization_id", organization.id);
+    .eq("organization_id", organization.id)
+    .select("id").maybeSingle();
 
   if (error) throw new Error(friendlyDatabaseError(error));
+  if (!data) throw new Error("El cliente ya no existe o no está disponible.");
   revalidatePath("/app/clientes");
   revalidatePath("/app/ventas");
 }

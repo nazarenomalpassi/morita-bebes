@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { Ban, Save } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useState } from "react";
 
 import {
   registerPayrollAdvanceAction,
@@ -33,7 +35,7 @@ function localToday() {
 }
 
 export function EmployeeForm({ values = {}, accounts = [] }: { values?: EmployeeValues; accounts?: StaffAccountOption[] }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveEmployeeAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(saveEmployeeAction, {});
   return (
     <form action={action} className="entity-form">
       <input name="id" type="hidden" value={values.id ?? ""} />
@@ -54,7 +56,7 @@ export function EmployeeForm({ values = {}, accounts = [] }: { values?: Employee
 }
 
 export function PayrollAdvanceForm({ employees, paymentMethods, month, selectedEmployeeId = "" }: { employees: EmployeeOption[]; paymentMethods: PaymentMethodOption[]; month: string; selectedEmployeeId?: string }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(registerPayrollAdvanceAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(registerPayrollAdvanceAction, {});
   const [employeeId, setEmployeeId] = useState(selectedEmployeeId);
   const [amount, setAmount] = useState("");
   const available = employees.find((employee) => employee.id === employeeId)?.availableSalary ?? null;
@@ -78,7 +80,7 @@ export function PayrollAdvanceForm({ employees, paymentMethods, month, selectedE
 }
 
 export function VoidPayrollAdvanceForm({ id }: { id: string }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(voidPayrollAdvanceAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(voidPayrollAdvanceAction, {});
   return (
     <form action={action} className="entity-form">
       <input name="id" type="hidden" value={id} />
@@ -91,7 +93,7 @@ export function VoidPayrollAdvanceForm({ id }: { id: string }) {
 }
 
 export function VoidPayrollSettlementForm({ id }: { id: string }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(voidPayrollSettlementAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(voidPayrollSettlementAction, {});
   return (
     <form action={action} className="entity-form">
       <input name="id" type="hidden" value={id} />

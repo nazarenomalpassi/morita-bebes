@@ -28,9 +28,15 @@ function fileExtension(file: File) {
   return byType[file.type] ?? "bin";
 }
 
+function refreshProductImages(productId: string) {
+  revalidatePath(`/app/productos/${productId}`);
+  revalidatePath("/app/tienda/productos");
+  revalidatePath("/tienda", "layout");
+}
+
 async function uploadStoreFile(file: File, folder: string) {
   if (!file.size || file.size > 6 * 1024 * 1024) throw new Error("La imagen debe pesar menos de 6 MB.");
-  if (!file.type.startsWith("image/")) throw new Error("Seleccioná un archivo de imagen válido.");
+  if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) throw new Error("Usá una imagen JPG, PNG, WebP o AVIF.");
   const { organization, supabase } = await requireActionContext(["owner", "admin"]);
   const path = `${organization.id}/${folder}/${crypto.randomUUID()}.${fileExtension(file)}`;
   const { error } = await supabase.storage.from("store-media").upload(path, file, { cacheControl: "3600", contentType: file.type, upsert: false });
@@ -46,12 +52,15 @@ export async function transitionWebOrderAction(formData: FormData) {
   if (!allowed.includes(requested)) throw new Error("Estado de pedido inválido.");
   const { error } = await supabase.rpc("transition_web_order", { p_order_id: orderId, p_status: requested });
   if (error) throw new Error(error.message.includes("stock") ? error.message : "No se pudo cambiar el estado del pedido.");
+  const { data: order, error: readError } = await supabase.from("web_orders").select("*").eq("id", orderId).single();
+  if (readError) throw new Error("El cambio se guardo, pero no pudimos actualizar la vista. Volve a abrir el pedido.");
   revalidatePath("/app/pedidos-web");
   revalidatePath("/app/productos");
   revalidatePath("/tienda", "layout");
+  return order;
 }
 
-export type ConfirmWebOrderState = ActionState & { saleId?: string };
+export type ConfirmWebOrderState = ActionState & { saleId?: string; order?: Database["public"]["Tables"]["web_orders"]["Row"] };
 
 export async function confirmWebOrderSaleAction(
   _previousState: ConfirmWebOrderState,
@@ -70,13 +79,15 @@ export async function confirmWebOrderSaleAction(
     });
     if (error) throw error;
     const result = data as { sale_id?: string } | null;
+    const { data: order, error: readError } = await supabase.from("web_orders").select("*").eq("id", orderId).single();
+    if (readError || !order.sale_id) throw new Error("No pudimos verificar la venta confirmada. Volve a abrir el pedido antes de intentar nuevamente.");
     revalidatePath("/app/pedidos-web");
     revalidatePath("/app/ventas");
     revalidatePath("/app/productos");
     revalidatePath("/app/caja");
     revalidatePath("/app");
     revalidatePath("/tienda", "layout");
-    return { message: "Venta confirmada. El stock y la caja ya fueron actualizados.", saleId: result?.sale_id };
+    return { message: "Venta confirmada. El stock y la caja ya fueron actualizados.", saleId: result?.sale_id, order };
   } catch (error) {
     const databaseError = error as { code?: string; message: string };
     if (databaseError.message?.includes("Stock insuficiente")) return { error: databaseError.message };
@@ -92,8 +103,8 @@ export async function reviewWholesaleAccountAction(formData: FormData) {
   const userIdTarget = uuid(formData, "user_id");
   const status = textField(formData, "status") as Database["public"]["Enums"]["wholesale_account_status"];
   if (!["approved", "rejected", "suspended"].includes(status)) throw new Error("Estado mayorista inválido.");
-  const { error } = await supabase.from("store_customer_profiles").update({ customer_type: status === "approved" ? "wholesale" : "retail", wholesale_status: status, wholesale_review_notes: textField(formData, "notes") || null, reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq("user_id", userIdTarget).eq("organization_id", organization.id);
-  if (error) throw new Error("No se pudo actualizar la cuenta mayorista.");
+  const { data, error } = await supabase.from("store_customer_profiles").update({ customer_type: status === "approved" ? "wholesale" : "retail", wholesale_status: status, wholesale_review_notes: textField(formData, "notes") || null, reviewed_by: userId, reviewed_at: new Date().toISOString() }).eq("user_id", userIdTarget).eq("organization_id", organization.id).select("user_id").maybeSingle();
+  if (error || !data) throw new Error("No se pudo actualizar la cuenta mayorista.");
   revalidatePath("/app/mayoristas");
 }
 
@@ -102,7 +113,7 @@ export async function saveStorefrontSettingsAction(formData: FormData) {
   const retailMinimum = Number(textField(formData, "minimum_retail_amount").replace(",", "."));
   const wholesaleMinimum = Number(textField(formData, "minimum_wholesale_amount").replace(",", "."));
   if (!Number.isFinite(retailMinimum) || retailMinimum < 0 || !Number.isFinite(wholesaleMinimum) || wholesaleMinimum < 0) throw new Error("Revisá los mínimos de compra.");
-  const { error } = await supabase.from("site_settings").update({
+  const { data, error } = await supabase.from("site_settings").update({
     store_online: bool(formData, "store_online"),
     homepage_title: textField(formData, "homepage_title").slice(0, 120),
     homepage_message: textField(formData, "homepage_message").slice(0, 500) || null,
@@ -111,8 +122,8 @@ export async function saveStorefrontSettingsAction(formData: FormData) {
     whatsapp: textField(formData, "whatsapp") || null,
     minimum_retail_amount: retailMinimum,
     minimum_wholesale_amount: wholesaleMinimum,
-  }).eq("organization_id", organization.id);
-  if (error) throw new Error("No se pudo guardar la configuración de la tienda.");
+  }).eq("organization_id", organization.id).select("organization_id").maybeSingle();
+  if (error || !data) throw new Error("No se pudo guardar la configuración de la tienda.");
   revalidatePath("/app/tienda");
   revalidatePath("/tienda", "layout");
 }
@@ -130,8 +141,8 @@ export async function createStoreBannerAction(formData: FormData) {
 export async function updateStoreBannerAction(formData: FormData) {
   const { organization, supabase } = await requireActionContext(["owner", "admin"]);
   const bannerId = uuid(formData, "banner_id");
-  const { error } = await supabase.from("store_banners").update({ title: textField(formData, "title"), subtitle: textField(formData, "subtitle") || null, cta_label: textField(formData, "cta_label") || null, cta_href: safeHref(textField(formData, "cta_href")), is_active: bool(formData, "is_active"), sort_order: Number(textField(formData, "sort_order")) || 0 }).eq("id", bannerId).eq("organization_id", organization.id);
-  if (error) throw new Error("No se pudo actualizar el banner.");
+  const { data, error } = await supabase.from("store_banners").update({ title: textField(formData, "title"), subtitle: textField(formData, "subtitle") || null, cta_label: textField(formData, "cta_label") || null, cta_href: safeHref(textField(formData, "cta_href")), is_active: bool(formData, "is_active"), sort_order: Number(textField(formData, "sort_order")) || 0 }).eq("id", bannerId).eq("organization_id", organization.id).select("id").maybeSingle();
+  if (error || !data) throw new Error("No se pudo actualizar el banner.");
   revalidatePath("/app/tienda"); revalidatePath("/tienda", "layout");
 }
 
@@ -153,7 +164,7 @@ export async function uploadProductImageAction(formData: FormData) {
   const { count } = await supabase.from("product_images").select("id", { count: "exact", head: true }).eq("product_id", productId).eq("organization_id", organization.id);
   const { error } = await supabase.from("product_images").insert({ organization_id: organization.id, product_id: productId, storage_path: path, alt_text: textField(formData, "alt_text") || null, sort_order: count ?? 0, is_primary: !count });
   if (error) { await supabase.storage.from("store-media").remove([path]); throw new Error("No se pudo guardar la imagen."); }
-  revalidatePath(`/app/productos/${productId}`); revalidatePath("/tienda", "layout");
+  refreshProductImages(productId);
 }
 
 export async function setPrimaryProductImageAction(formData: FormData) {
@@ -161,7 +172,7 @@ export async function setPrimaryProductImageAction(formData: FormData) {
   const productId = uuid(formData, "product_id"); const imageId = uuid(formData, "image_id");
   const { error } = await supabase.rpc("set_primary_product_image", { p_product_id: productId, p_image_id: imageId });
   if (error) throw new Error("No se pudo cambiar la portada.");
-  revalidatePath(`/app/productos/${productId}`); revalidatePath("/tienda", "layout");
+  refreshProductImages(productId);
 }
 
 export async function reorderProductImageAction(formData: FormData) {
@@ -171,29 +182,30 @@ export async function reorderProductImageAction(formData: FormData) {
   if (![1, -1].includes(direction)) throw new Error("Dirección inválida.");
   const { error } = await supabase.rpc("reorder_product_image", { p_image_id: imageId, p_direction: direction });
   if (error) throw new Error("No se pudo reordenar la imagen.");
-  revalidatePath(`/app/productos/${productId}`); revalidatePath("/tienda", "layout");
+  refreshProductImages(productId);
 }
 
 export async function deleteProductImageAction(formData: FormData) {
   const { organization, supabase } = await requireActionContext(["owner", "admin"]);
   const productId = uuid(formData, "product_id"); const imageId = uuid(formData, "image_id");
-  const { data } = await supabase.from("product_images").select("storage_path, is_primary").eq("id", imageId).eq("organization_id", organization.id).maybeSingle();
-  const { error } = await supabase.from("product_images").delete().eq("id", imageId).eq("organization_id", organization.id);
-  if (error) throw new Error("No se pudo eliminar la imagen.");
+  const { data, error: lookupError } = await supabase.from("product_images").select("storage_path, is_primary").eq("id", imageId).eq("product_id", productId).eq("organization_id", organization.id).maybeSingle();
+  if (lookupError || !data) throw new Error("La imagen ya no está disponible para ese producto.");
+  const { data: deleted, error } = await supabase.from("product_images").delete().eq("id", imageId).eq("product_id", productId).eq("organization_id", organization.id).select("id").maybeSingle();
+  if (error || !deleted) throw new Error("No se pudo eliminar la imagen.");
   if (data?.storage_path) await supabase.storage.from("store-media").remove([data.storage_path]);
   if (data?.is_primary) {
     const { data: nextImage } = await supabase.from("product_images").select("id").eq("product_id", productId).eq("organization_id", organization.id).order("sort_order").limit(1).maybeSingle();
     if (nextImage) await supabase.rpc("set_primary_product_image", { p_product_id: productId, p_image_id: nextImage.id });
   }
-  revalidatePath(`/app/productos/${productId}`); revalidatePath("/tienda", "layout");
+  refreshProductImages(productId);
 }
 
 export async function uploadCategoryImageAction(formData: FormData) {
   const categoryId = uuid(formData, "category_id"); const file = formData.get("image");
   if (!(file instanceof File)) throw new Error("Seleccioná una imagen.");
   const { organization, path, supabase } = await uploadStoreFile(file, `categories/${categoryId}`);
-  const { error } = await supabase.from("categories").update({ image_path: path, is_featured_online: bool(formData, "is_featured_online") }).eq("id", categoryId).eq("organization_id", organization.id);
-  if (error) { await supabase.storage.from("store-media").remove([path]); throw new Error("No se pudo actualizar la categoría."); }
+  const { data, error } = await supabase.from("categories").update({ image_path: path, is_featured_online: bool(formData, "is_featured_online") }).eq("id", categoryId).eq("organization_id", organization.id).select("id").maybeSingle();
+  if (error || !data) { await supabase.storage.from("store-media").remove([path]); throw new Error("No se pudo actualizar la categoría."); }
   revalidatePath("/app/tienda"); revalidatePath("/tienda", "layout");
   redirect("/app/tienda#categorias");
 }

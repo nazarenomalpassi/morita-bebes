@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireActionContext } from "@/lib/actions/context";
+import { isYearMonth } from "@/lib/date";
+import { parsePriceInput } from "@/lib/inventory/prices";
 import { friendlyDatabaseError, textField, type ActionState } from "@/lib/actions/form-state";
 
 const goalSchema = z.object({
-  goal_month: z.string().regex(/^\d{4}-\d{2}$/),
-  sales_target: z.coerce.number().positive().max(999_999_999_999.99),
+  goal_month: z.string().refine(isYearMonth),
+  sales_target: z.number().positive().max(999_999_999_999.99),
 });
 
 export async function saveMonthlyGoalAction(
@@ -17,7 +19,7 @@ export async function saveMonthlyGoalAction(
 ): Promise<ActionState> {
   const parsed = goalSchema.safeParse({
     goal_month: textField(formData, "goal_month"),
-    sales_target: textField(formData, "sales_target"),
+    sales_target: parsePriceInput(textField(formData, "sales_target")),
   });
   if (!parsed.success) return { error: "Ingresá un mes y un importe mayor a cero." };
 
@@ -37,14 +39,16 @@ export async function saveMonthlyGoalAction(
       .update({ sales_target: parsed.data.sales_target })
       .eq("id", existing.data.id)
       .eq("organization_id", organization.id)
+      .select("id").maybeSingle()
     : await supabase.from("monthly_sales_goals").insert({
       organization_id: organization.id,
       goal_month: goalMonth,
       sales_target: parsed.data.sales_target,
       created_by: userId,
-    });
+    }).select("id").single();
 
   if (result.error) return { error: friendlyDatabaseError(result.error) };
+  if (!result.data) return { error: "La meta ya no está disponible. Reintentá." };
   revalidatePath("/app/reportes");
   return { message: "Meta mensual guardada." };
 }

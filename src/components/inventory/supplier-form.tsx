@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { Save } from "lucide-react";
-import { useActionState } from "react";
+
 
 import type { InventoryActionState } from "./action-state";
 import { initialInventoryActionState } from "./action-state";
@@ -44,7 +46,7 @@ export function SupplierForm({
   action: SupplierAction;
   supplier?: SupplierFormValue;
 }) {
-  const [state, formAction] = useActionState(action, initialInventoryActionState);
+  const [state, formAction] = useSubmissionState(action, initialInventoryActionState);
   const editing = Boolean(supplier);
   return (
     <form action={formAction} className="mt-8 space-y-8">

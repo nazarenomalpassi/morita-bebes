@@ -1,7 +1,7 @@
 "use client";
 
 import { Save } from "lucide-react";
-import { useActionState } from "react";
+import { usePreservedActionState } from "@/lib/ui/use-preserved-action-state";
 
 import { formatPriceInput } from "@/lib/inventory/prices";
 
@@ -78,11 +78,12 @@ export function ProductForm({
   product?: ProductFormValue;
   suppliers: SupplierOption[];
 }) {
-  const [state, formAction] = useActionState(action, initialInventoryActionState);
+  const { state, formAction, onReset } = usePreservedActionState(action, initialInventoryActionState);
   const editing = Boolean(product);
 
   return (
-    <form action={formAction} className="mt-8 space-y-9">
+    <form action={formAction} onReset={onReset} className="mt-8 space-y-9">
+      {editing ? <input name="original_stock" type="hidden" value={product!.current_stock} /> : null}
       <ActionFeedback state={state} />
 
       <section aria-labelledby="product-basic-heading">

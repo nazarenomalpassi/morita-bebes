@@ -1,8 +1,10 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { ArrowRight, CheckCircle2, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { createWebOrderAction, revalidateStoreCartAction, type StoreActionState } from "@/app/tienda/actions";
 import { useStoreCart } from "@/components/store/cart-provider";
@@ -15,7 +17,7 @@ const subscribeToBrowser = () => () => {};
 
 export function StoreCart({ accountType, authenticated, minimum }: { accountType: "guest" | "retail" | "wholesale"; authenticated: boolean; minimum: number }) {
   const { clear, items, remove, subtotal, syncProducts, updateQuantity } = useStoreCart();
-  const [state, action, pending] = useActionState(createWebOrderAction, initialState);
+  const [state, action, pending] = useSubmissionState(createWebOrderAction, initialState);
   const idempotencyRef = useRef("");
   const idempotencyKey = useSyncExternalStore(
     subscribeToBrowser,
@@ -49,6 +51,8 @@ export function StoreCart({ accountType, authenticated, minimum }: { accountType
       });
       syncProducts(result.products);
       setSyncMessage(changed ? "Actualizamos precios y disponibilidad con los datos actuales del local." : "");
+    }).catch(() => {
+      if (!cancelled) setSyncMessage("No pudimos verificar el carrito. Revisá tu conexión e intentá nuevamente.");
     });
     return () => { cancelled = true; };
   // The item ID set and account type are the only triggers; syncing values must not start a loop.

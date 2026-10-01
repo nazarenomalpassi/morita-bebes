@@ -225,7 +225,7 @@ export default async function PersonnelPage({
 
       <section className="records-section">
         <div className="section-heading-row"><div><span className="eyebrow">Valores históricos guardados</span><h2>Historial de liquidaciones</h2></div></div>
-        <div className="data-table-wrap compact-table-wrap" data-mobile-cards>
+        <div aria-label="Historial de liquidaciones" className="data-table-wrap compact-table-wrap" data-mobile-cards role="region" tabIndex={0}>
           <table className="data-table payroll-history-table">
             <thead><tr><th>Período</th><th>Empleado</th><th>Generado</th><th>Adelantos</th><th>Pago final</th><th>Abonado</th><th>Pendiente</th><th>Estado</th></tr></thead>
             <tbody>

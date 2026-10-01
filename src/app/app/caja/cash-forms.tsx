@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { ArrowRightLeft, ClipboardCheck, Landmark, WalletCards } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { initializeCashAction, manualCashAction, reconcileCashAction, transferCashAction } from "@/app/app/caja/actions";
 import { SensitiveAmount, useSensitiveBalances } from "@/components/finance/sensitive-balances";
@@ -25,7 +27,7 @@ function Message({ state }: { state: ActionState }) {
 }
 
 export function InitialBalanceForm({ methods }: { methods: Array<{ id: string; name: string }> }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(initializeCashAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(initializeCashAction, {});
   const [balances, setBalances] = useState<Record<string, string>>(() => Object.fromEntries(methods.map((method) => [method.id, "0"])));
   const serialized = useMemo(() => methods.map((method) => ({ payment_method_id: method.id, amount: Number(balances[method.id] || 0) })), [balances, methods]);
   return <form action={action} className="cash-setup-form">
@@ -41,7 +43,7 @@ export function InitialBalanceForm({ methods }: { methods: Array<{ id: string; n
 }
 
 export function TransferForm({ accounts }: { accounts: AccountOption[] }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(transferCashAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(transferCashAction, {});
   const { hidden } = useSensitiveBalances();
   return <form action={action} className="entity-form cash-action-form">
     <div className="form-grid">
@@ -55,7 +57,7 @@ export function TransferForm({ accounts }: { accounts: AccountOption[] }) {
 }
 
 export function ManualMovementForm({ accounts }: { accounts: AccountOption[] }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(manualCashAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(manualCashAction, {});
   return <form action={action} className="entity-form cash-action-form"><div className="form-grid">
     <label className="field-label">Tipo<select className="field-input" name="direction"><option value="credit">Ingreso manual</option><option value="debit">Egreso manual</option></select></label>
     <label className="field-label">Caja<select className="field-input" name="payment_method_id">{accounts.map((account) => <option key={account.payment_method_id} value={account.payment_method_id}>{account.name}</option>)}</select></label>
@@ -69,7 +71,7 @@ export function ManualMovementForm({ accounts }: { accounts: AccountOption[] }) 
 export function ReconcileForm({ accounts }: { accounts: AccountOption[] }) {
   const [selected, setSelected] = useState(accounts[0]?.payment_method_id ?? "");
   const [counted, setCounted] = useState("");
-  const [state, action, pending] = useActionState<ActionState, FormData>(reconcileCashAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(reconcileCashAction, {});
   const system = accounts.find((account) => account.payment_method_id === selected)?.balance ?? 0;
   const difference = counted === "" ? null : Number(counted) - system;
   return <form action={action} className="entity-form cash-action-form"><div className="form-grid">

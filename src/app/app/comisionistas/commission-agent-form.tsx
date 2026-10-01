@@ -1,7 +1,7 @@
 "use client";
 
 import { Save } from "lucide-react";
-import { useActionState } from "react";
+import { usePreservedActionState } from "@/lib/ui/use-preserved-action-state";
 
 import { saveCommissionAgentAction } from "@/app/app/comisionistas/actions";
 import type { ActionState } from "@/lib/actions/form-state";
@@ -16,13 +16,13 @@ type CommissionAgentValues = {
 };
 
 export function CommissionAgentForm({ values = {} }: { values?: CommissionAgentValues }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(
+  const { state, formAction: action, pending, onReset } = usePreservedActionState<ActionState>(
     saveCommissionAgentAction,
     {},
   );
 
   return (
-    <form action={action} className="entity-form">
+    <form action={action} onReset={onReset} className="entity-form">
       <input name="id" type="hidden" value={values.id ?? ""} />
       <div className="form-grid">
         <label className="field-label">

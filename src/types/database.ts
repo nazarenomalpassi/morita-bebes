@@ -2689,6 +2689,10 @@ export type Database = {
         Returns: string
       }
       can_bootstrap_organization: { Args: never; Returns: boolean }
+      update_product_details: {
+        Args: { p_organization_id: string; p_product_id: string; p_values: Json; p_original_stock: number; p_requested_stock: number }
+        Returns: string
+      }
       cancel_expense: {
         Args: { p_expense_id: string; p_reason: string }
         Returns: string

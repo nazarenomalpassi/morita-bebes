@@ -1,0 +1,59 @@
+{
+  "checkedAt": "2026-10-01T21:40:43.075Z",
+  "checks": [
+    {
+      "table": "products",
+      "originalRows": 979,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "sales",
+      "originalRows": 1073,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "sale_items",
+      "originalRows": 472,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "expenses",
+      "originalRows": 21,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "payroll_settlements",
+      "originalRows": 1,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "payroll_movements",
+      "originalRows": 6,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "cash_movements",
+      "originalRows": 303,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "daily_cash_closures",
+      "originalRows": 45,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "daily_cash_closure_items",
+      "originalRows": 90,
+      "changedOrMissing": 0,
+      "added": 0
+    }
+  ]
+}

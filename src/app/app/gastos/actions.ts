@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { requireActionContext } from "@/lib/actions/context";
 import { validateExpensePayments } from "@/lib/expenses/payments";
+import type { ExpenseRecord, ExpenseCategory } from "@/lib/expenses/types";
 import {
   friendlyDatabaseError,
   textField,
@@ -21,11 +22,12 @@ const expenseSchema = z.object({
   payroll_employee_id: z.union([z.uuid(), z.literal("")]),
   payroll_period_month: z.union([z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), z.literal("")]),
 });
+export type ExpenseActionState = ActionState & { expense?: ExpenseRecord; category?: ExpenseCategory };
 
 export async function saveExpenseAction(
   _previousState: ActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ExpenseActionState> {
   const parsed = expenseSchema.safeParse({
     id: textField(formData, "id"),
     description: textField(formData, "description"),
@@ -100,13 +102,13 @@ export async function saveExpenseAction(
         .update(payload)
         .eq("id", parsed.data.id)
         .eq("organization_id", organization.id)
-        .select("id")
+        .select("*, expense_categories(name, is_payroll_advance), payment_methods(name)")
         .maybeSingle()
     : await supabase.from("expenses").insert({
         ...payload,
         organization_id: organization.id,
         created_by: userId,
-      }).select("id").single();
+      }).select("*, expense_categories(name, is_payroll_advance), payment_methods(name)").single();
 
   if (result.error) return { error: friendlyDatabaseError(result.error) };
   if (!result.data) return { error: "El gasto ya no existe o no está disponible." };
@@ -117,33 +119,37 @@ export async function saveExpenseAction(
   revalidatePath("/app/mi-sueldo");
   if (closedCashDay) {
     return {
+      expense: result.data,
       message: parsed.data.id
         ? "Gasto actualizado. El ajuste impactó en la caja abierta actual sin modificar el cierre histórico."
         : "Gasto registrado con su fecha original. La salida impactó en la caja abierta actual sin modificar el cierre histórico.",
     };
   }
-  return { message: parsed.data.id ? "Gasto actualizado." : "Gasto registrado." };
+  return { message: parsed.data.id ? "Gasto actualizado." : "Gasto registrado.", expense: result.data };
 }
 
 export async function cancelExpenseAction(formData: FormData) {
   const id = textField(formData, "id");
   const reason = textField(formData, "reason");
-  if (!z.uuid().safeParse(id).success || reason.length < 3) return;
+  if (!z.uuid().safeParse(id).success || reason.length < 3) throw new Error("Revisa el gasto y el motivo de anulacion.");
   const { supabase } = await requireActionContext(["owner", "admin"]);
   const { error } = await supabase.rpc("cancel_expense", {
     p_expense_id: id,
     p_reason: reason.slice(0, 500),
   });
   if (error) throw new Error(friendlyDatabaseError(error));
+  const { data: expense, error: readError } = await supabase.from("expenses").select("*, expense_categories(name, is_payroll_advance), payment_methods(name)").eq("id", id).single();
+  if (readError) throw new Error("La anulacion se guardo, pero no pudimos actualizar la vista.");
   revalidatePath("/app");
   revalidatePath("/app/gastos");
   revalidatePath("/app/caja");
+  return expense;
 }
 
 export async function createExpenseCategoryAction(
   _previousState: ActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ExpenseActionState> {
   const name = textField(formData, "name");
   if (name.length < 2 || name.length > 100) {
     return { error: "Ingresá un nombre de entre 2 y 100 caracteres." };
@@ -152,12 +158,12 @@ export async function createExpenseCategoryAction(
     return { error: "Los egresos de Personal se registran en su propia sección." };
   }
   const { organization, supabase } = await requireActionContext(["owner", "admin"]);
-  const { error } = await supabase.from("expense_categories").insert({
+  const { data: category, error } = await supabase.from("expense_categories").insert({
     organization_id: organization.id,
     name,
     is_payroll_advance: false,
-  });
+  }).select("id, name, is_payroll_advance").single();
   if (error) return { error: friendlyDatabaseError(error) };
   revalidatePath("/app/gastos");
-  return { message: "Categoría creada." };
+  return { message: "Categoría creada.", category };
 }

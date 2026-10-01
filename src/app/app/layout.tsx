@@ -23,6 +23,7 @@ export default async function ManagementLayout({
         organizationName={organization?.name ?? "Sin configurar"}
         role={organization?.role}
         userLabel={userLabel}
+        renderVersion={crypto.randomUUID()}
       >
         {children}
       </ManagementShell>

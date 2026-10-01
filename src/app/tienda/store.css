@@ -391,7 +391,7 @@
 .store-wholesale-steps header > p { margin: 0 0 2rem; color: var(--store-muted); line-height: 1.6; }
 .store-wholesale-steps > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .store-wholesale-steps article { position: relative; border-top: 2px solid var(--store-lavender); padding: 1.3rem 0; }
-.store-wholesale-steps article > span { position: absolute; top: 1.25rem; right: 0; color: #b7aeba; font-size: .68rem; font-weight: 700; }
+.store-wholesale-steps article > span { position: absolute; top: 1.25rem; right: 0; color: var(--store-muted); font-size: .68rem; font-weight: 700; }
 .store-wholesale-steps article svg { color: var(--store-purple); }
 .store-wholesale-steps article strong { display: block; margin: 1rem 0 .45rem; }
 .store-wholesale-steps article p { margin: 0; color: var(--store-muted); font-size: .8rem; line-height: 1.55; }

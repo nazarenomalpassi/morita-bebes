@@ -5,6 +5,12 @@ import { createContext, useContext, useMemo, useSyncExternalStore } from "react"
 
 const STORAGE_KEY = "morita-hide-sensitive-balances";
 const CHANGE_EVENT = "morita-sensitive-balances-change";
+let sessionHidden = false;
+
+function readHidden() {
+  try { return window.localStorage.getItem(STORAGE_KEY) === "true"; }
+  catch { return sessionHidden; }
+}
 
 type SensitiveBalancesContextValue = {
   hidden: boolean;
@@ -23,7 +29,7 @@ export function SensitiveBalancesProvider({ children }: { children: React.ReactN
         window.removeEventListener(CHANGE_EVENT, onStoreChange);
       };
     },
-    () => window.localStorage.getItem(STORAGE_KEY) === "true",
+    readHidden,
     () => false,
   );
 
@@ -31,7 +37,8 @@ export function SensitiveBalancesProvider({ children }: { children: React.ReactN
     hidden,
     toggle: () => {
       const next = !hidden;
-      window.localStorage.setItem(STORAGE_KEY, String(next));
+      sessionHidden = next;
+      try { window.localStorage.setItem(STORAGE_KEY, String(next)); } catch { /* Private mode may disable storage. */ }
       window.dispatchEvent(new Event(CHANGE_EVENT));
     },
   }), [hidden]);

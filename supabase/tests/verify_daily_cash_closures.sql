@@ -29,7 +29,7 @@ begin
 
   perform public.initialize_cash_tracking(
     org,
-    yesterday::timestamp at time zone 'America/Argentina/Cordoba',
+    (yesterday - 1)::timestamp at time zone 'America/Argentina/Cordoba',
     (
       select jsonb_agg(jsonb_build_object(
         'payment_method_id', method.id,

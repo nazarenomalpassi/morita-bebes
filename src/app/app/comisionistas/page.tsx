@@ -65,7 +65,7 @@ export default async function CommissionAgentsPage({
           <input defaultValue={query} name="q" placeholder="Nombre, teléfono o zona" type="search" />
         </label>
         {canManage ? (
-          <select className="field-input filter-select" defaultValue={showInactive ? "todos" : "activos"} name="estado">
+          <select aria-label="Estado de comisionistas" className="field-input filter-select" defaultValue={showInactive ? "todos" : "activos"} name="estado">
             <option value="activos">Solo activos</option>
             <option value="todos">Todos</option>
           </select>

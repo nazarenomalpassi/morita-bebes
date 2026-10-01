@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { passwordField } from "@/lib/actions/form-state";
 import { storePostLoginDestination } from "@/lib/store/admin";
 import { STORE_ORGANIZATION_SLUG, type CartSnapshot } from "@/lib/store/types";
 import { buildStoreWhatsAppUrl, type CreatedStoreOrder } from "@/lib/store/order";
@@ -49,7 +50,7 @@ export async function storeLoginAction(
   formData: FormData,
 ): Promise<StoreActionState> {
   const email = field(formData, "email").toLowerCase();
-  const password = field(formData, "password");
+  const password = passwordField(formData, "password");
   const next = safeStorePath(field(formData, "next"));
   if (!email.includes("@")) return { error: "Ingresá un correo válido." };
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
@@ -82,7 +83,7 @@ export async function storeRegisterAction(
   formData: FormData,
 ): Promise<StoreActionState> {
   const email = field(formData, "email").toLowerCase();
-  const password = field(formData, "password");
+  const password = passwordField(formData, "password");
   const firstName = field(formData, "first_name");
   const lastName = field(formData, "last_name");
   const phone = field(formData, "phone");
@@ -163,8 +164,9 @@ export async function updateStoreProfileAction(
   if (payload.first_name.length < 2 || payload.last_name.length < 2 || payload.phone.length < 6) {
     return { error: "Revisá tus datos personales." };
   }
-  const { error } = await supabase.from("store_customer_profiles").update(payload).eq("user_id", data.claims.sub);
+  const { data: updated, error } = await supabase.from("store_customer_profiles").update(payload).eq("user_id", data.claims.sub).select("user_id").maybeSingle();
   if (error) return { error: friendlyStoreError(error.message) };
+  if (!updated) return { error: "No encontramos tu perfil de cliente. Iniciá sesión nuevamente." };
   revalidatePath("/tienda/cuenta");
   return { message: "Tus datos se actualizaron correctamente." };
 }

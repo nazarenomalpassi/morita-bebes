@@ -8,6 +8,26 @@ export function textField(formData: FormData, name: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+export function passwordField(formData: FormData, name: string) {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
+export function formDataChanged(current: FormData, submitted: FormData) {
+  const keys = new Set([...current.keys(), ...submitted.keys()]);
+  for (const key of keys) {
+    const before = submitted.getAll(key);
+    const after = current.getAll(key);
+    if (before.length !== after.length) return true;
+    if (before.some((value, index) => {
+      const next = after[index];
+      if (typeof value === "string" || typeof next === "string") return value !== next;
+      return value.name !== next.name || value.size !== next.size || value.lastModified !== next.lastModified || value.type !== next.type;
+    })) return true;
+  }
+  return false;
+}
+
 export function optionalText(formData: FormData, name: string) {
   return textField(formData, name) || null;
 }

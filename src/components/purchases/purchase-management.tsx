@@ -1,5 +1,7 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import {
   AlertTriangle,
   Ban,
@@ -17,11 +19,7 @@ import {
   Truck,
 } from "lucide-react";
 import Link from "next/link";
-import {
-  useActionState,
-  useMemo,
-  useState,
-} from "react";
+import { useMemo, useState } from "react";
 
 import {
   createPurchaseOrderAction,
@@ -512,7 +510,7 @@ function PurchaseEditor({
 }
 
 export function PurchaseManagement(props: PurchaseManagementProps) {
-  const [state, formAction, pending] = useActionState(
+  const [state, formAction, pending] = useSubmissionState(
     createPurchaseOrderAction,
     initialState,
   );

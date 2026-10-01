@@ -1,13 +1,15 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { UserPlus } from "lucide-react";
-import { useActionState } from "react";
+
 
 import { addMemberAction } from "@/app/app/usuarios/actions";
 import type { ActionState } from "@/lib/actions/form-state";
 
 export function MemberForm({ canAssignOwner }: { canAssignOwner: boolean }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(addMemberAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(addMemberAction, {});
   return (
     <form action={action} className="inline-create-form member-form">
       <label className="field-label">Nombre<input className="field-input" maxLength={120} minLength={2} name="display_name" required /></label>

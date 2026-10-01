@@ -1,0 +1,662 @@
+{
+  "startedAt": "2026-10-01T22:10:57.496Z",
+  "database": [
+    {
+      "name": "verify_backdated_expenses_after_closure.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_card_payment_surcharges.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_daily_cash_closures.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_ecommerce_storefront.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_employee_permissions.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_expense_combined_payments.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_functional_audit.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_invoker_security.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_manual_sale_surcharge.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_personnel_payroll_cash_workflow.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_safe_sale_submission_and_cancellation.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_staff_product_update.sql",
+      "passed": true
+    }
+  ],
+  "pages": [
+    {
+      "name": "owner 1366 /app",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/productos/nuevo",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/productos/a482a506-9c37-497e-a8b9-4ab69970d1b1",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/productos/a482a506-9c37-497e-a8b9-4ab69970d1b1/editar",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/proveedores",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/proveedores/nuevo",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/proveedores/0ab596e1-f063-4e03-a026-990d74b60b4a/editar",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/categorias",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/compras",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/clientes",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/comisionistas",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/reportes",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/tienda",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/usuarios",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/auditoria",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/configuracion",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/importar",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/productos/nuevo",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/productos/a482a506-9c37-497e-a8b9-4ab69970d1b1",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/productos/a482a506-9c37-497e-a8b9-4ab69970d1b1/editar",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/proveedores",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/proveedores/nuevo",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/proveedores/0ab596e1-f063-4e03-a026-990d74b60b4a/editar",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/categorias",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/compras",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/clientes",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/comisionistas",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/reportes",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/tienda",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/usuarios",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/auditoria",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/configuracion",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/importar",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/productos/a482a506-9c37-497e-a8b9-4ab69970d1b1/editar",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/proveedores",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/categorias",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/compras",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/clientes",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/comisionistas",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/mi-sueldo",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/usuarios",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/reportes",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /login",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /actualizar-clave",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/carrito",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/ingresar",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/registro",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /sin-conexion",
+      "passed": true
+    },
+    {
+      "name": "public 390 /login",
+      "passed": true
+    },
+    {
+      "name": "public 390 /recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 390 /actualizar-clave",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/carrito",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/ingresar",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/registro",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 390 /sin-conexion",
+      "passed": true
+    },
+    {
+      "name": "public 375 /login",
+      "passed": true
+    },
+    {
+      "name": "public 375 /recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 375 /actualizar-clave",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/carrito",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/ingresar",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/registro",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 375 /sin-conexion",
+      "passed": true
+    },
+    {
+      "name": "public 768 /login",
+      "passed": true
+    },
+    {
+      "name": "public 768 /recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 768 /actualizar-clave",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/carrito",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/ingresar",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/registro",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 768 /sin-conexion",
+      "passed": true
+    }
+  ],
+  "flows": [
+    {
+      "name": "Product quick price edit persisted",
+      "passed": true
+    },
+    {
+      "name": "Combined expense via UI persisted and debited once",
+      "passed": true
+    },
+    {
+      "name": "Mobile drawer keyboard and focus",
+      "passed": true
+    },
+    {
+      "name": "Customer validation preserves input and allows retry",
+      "passed": true
+    },
+    {
+      "name": "Commission agent creation and route search",
+      "passed": true
+    },
+    {
+      "name": "Refresh recovery preserves new unsaved input",
+      "passed": true
+    },
+    {
+      "name": "Scanner stock zero, repeated scans and 100% discount sale",
+      "passed": true
+    },
+    {
+      "name": "Invalid URL filters do not crash financial pages",
+      "passed": true
+    },
+    {
+      "name": "Hide balances synchronizes globally and survives reload",
+      "passed": true
+    },
+    {
+      "name": "Store cart to web order to paid management sale",
+      "passed": true
+    },
+    {
+      "name": "PWA manifest, first install and offline feedback",
+      "passed": true
+    },
+    {
+      "name": "No uncaught browser exceptions",
+      "passed": true
+    }
+  ],
+  "failures": [],
+  "productionBuild": {
+    "passed": true
+  },
+  "finishedAt": "2026-10-01T22:13:31.969Z"
+}

@@ -15,7 +15,8 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
 
 import {
   createSaleAction,
@@ -40,6 +41,7 @@ import {
 } from "@/lib/sales/barcode-scanner";
 import { calculateSaleAmounts, isFullyDiscountedSale } from "@/lib/sales/discount";
 import { sanitizeDecimalInput } from "@/lib/sales/decimal-input";
+import { useModalFocus } from "@/lib/ui/use-modal-focus";
 
 type Option = { id: string; name: string };
 type PaymentMethod = Option & {
@@ -98,6 +100,9 @@ function SaleEditor({
   const submitInFlightRef = useRef(false);
   const actualSubmitRef = useRef<HTMLButtonElement>(null);
   const scannerInputRef = useRef<HTMLInputElement>(null);
+  const confirmationRef = useRef<HTMLElement>(null);
+  const closeConfirmation = useCallback(() => setConfirmationOpen(false), []);
+  useModalFocus(confirmationOpen, confirmationRef, closeConfirmation);
   const lastScanRef = useRef<{ code: string; occurredAt: number } | null>(null);
   const scanFeedbackIdRef = useRef(0);
 
@@ -209,7 +214,9 @@ function SaleEditor({
   }
 
   function refocusScanner() {
+    const focusedWhenScheduled = document.activeElement;
     window.requestAnimationFrame(() => {
+      if (document.activeElement !== focusedWhenScheduled && document.activeElement !== document.body) return;
       scannerInputRef.current?.focus();
       scannerInputRef.current?.select();
     });
@@ -693,7 +700,7 @@ function SaleEditor({
         <div className="sale-dialog-backdrop" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setConfirmationOpen(false);
         }}>
-          <section aria-labelledby="sale-confirmation-title" aria-modal="true" className="sale-confirmation-dialog" role="dialog">
+          <section aria-labelledby="sale-confirmation-title" aria-modal="true" className="sale-confirmation-dialog" ref={confirmationRef} role="dialog" tabIndex={-1}>
             <div className="sale-confirmation-icon"><ShieldCheck aria-hidden="true" size={22} /></div>
             <div>
               <p className="eyebrow">Revisión final</p>
@@ -726,7 +733,7 @@ export function SaleWorkspace(props: {
   paymentMethods: PaymentMethod[];
   canChooseDate: boolean;
 }) {
-  const [state, action, pending] = useActionState(createSaleAction, initialState);
+  const [state, action, pending] = useSubmissionState(createSaleAction, initialState);
   return (
     <SaleEditor
       {...props}

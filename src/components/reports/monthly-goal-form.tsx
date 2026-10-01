@@ -1,13 +1,15 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { Save } from "lucide-react";
-import { useActionState } from "react";
+
 
 import { saveMonthlyGoalAction } from "@/app/app/reportes/actions";
 import type { ActionState } from "@/lib/actions/form-state";
 
 export function MonthlyGoalForm({ month, target }: { month: string; target: number | null }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveMonthlyGoalAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(saveMonthlyGoalAction, {});
   return (
     <form action={action} className="goal-form">
       <label className="field-label">

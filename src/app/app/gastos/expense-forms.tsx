@@ -1,13 +1,15 @@
 "use client";
 
 import { Plus, Save } from "lucide-react";
-import { useActionState, useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
 
 import {
   createExpenseCategoryAction,
   saveExpenseAction,
+  type ExpenseActionState,
 } from "@/app/app/gastos/actions";
-import type { ActionState } from "@/lib/actions/form-state";
+import type { ExpenseRecord, ExpenseCategory } from "@/lib/expenses/types";
 import { readExpensePayments, validateExpensePayments } from "@/lib/expenses/payments";
 import { ars } from "@/lib/format";
 import { sanitizeDecimalInput } from "@/lib/sales/decimal-input";
@@ -38,14 +40,17 @@ export function ExpenseForm({
   values = {},
   canChooseDate = true,
   closedThrough = null,
+  onSaved,
 }: {
   categories: CategoryOption[];
   paymentMethods: Option[];
   values?: ExpenseValues;
   canChooseDate?: boolean;
   closedThrough?: string | null;
+  onSaved?: (expense: ExpenseRecord, message: string) => void;
 }) {
   const ready = useSyncExternalStore(subscribe, () => true, () => false);
+  const formRef = useRef<HTMLFormElement>(null);
   const initialPayments = readExpensePayments(values.payment_allocations);
   const initialDate = values.expense_date ?? today();
   const [description, setDescription] = useState(values.description ?? "");
@@ -58,8 +63,15 @@ export function ExpenseForm({
   const [amounts, setAmounts] = useState<Record<string, string>>(() => Object.fromEntries(
     initialPayments.map((payment) => [payment.payment_method_id, String(payment.amount)]),
   ));
-  const [state, action, pending] = useActionState<ActionState, FormData>(async (previous, formData) => {
+  const [state, action, pending] = useSubmissionState<ExpenseActionState, FormData>(async (previous, formData) => {
     const result = await saveExpenseAction(previous, formData);
+    if (result.expense && !result.error) {
+      if (values.id) {
+        const panel = formRef.current?.closest("details");
+        if (panel) panel.open = false;
+      }
+      onSaved?.(result.expense, result.message ?? "Gasto guardado.");
+    }
     if (result.message && !values.id) {
       setDescription("");
       setAmount("");
@@ -86,7 +98,7 @@ export function ExpenseForm({
   const matches = Boolean(validateExpensePayments(payments, total).payments);
   const usesCurrentCashDay = Boolean(closedThrough && expenseDate <= closedThrough);
   return (
-    <form action={action} className="entity-form">
+    <form action={action} className="entity-form" ref={formRef}>
       <input name="id" type="hidden" value={values.id ?? ""} />
       <input name="payments" type="hidden" value={JSON.stringify(payments)} />
       <fieldset className="form-grid expense-fields" disabled={pending || !ready}>
@@ -160,8 +172,12 @@ export function ExpenseForm({
   );
 }
 
-export function ExpenseCategoryForm() {
-  const [state, action, pending] = useActionState<ActionState, FormData>(createExpenseCategoryAction, {});
+export function ExpenseCategoryForm({ onSaved }: { onSaved?: (category: ExpenseCategory) => void }) {
+  const [state, action, pending] = useSubmissionState<ExpenseActionState, FormData>(async (previous, formData) => {
+    const result = await createExpenseCategoryAction(previous, formData);
+    if (result.category && !result.error) onSaved?.(result.category);
+    return result;
+  }, {});
   return (
     <form action={action} className="inline-create-form">
       <label className="field-label">

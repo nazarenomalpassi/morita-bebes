@@ -1,18 +1,6 @@
-import {
-  Box,
-  CheckCircle2,
-  Clock3,
-  ExternalLink,
-  MessageCircle,
-  ShoppingBag,
-  XCircle,
-} from "lucide-react";
-import Link from "next/link";
-
-import { transitionWebOrderAction } from "@/app/app/tienda/actions";
-import { ConfirmWebOrderControl } from "@/components/store/confirm-web-order-control";
+import { ShoppingBag } from "lucide-react";
+import { WebOrderCard } from "@/components/store/web-order-card";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
-import { ars, dateTime, quantity } from "@/lib/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -25,26 +13,6 @@ const labels: Record<string, string> = {
   ready: "Listo",
   completed: "Entregado",
   cancelled: "Cancelado",
-};
-
-const nextStates: Record<string, Array<{ status: string; label: string }>> = {
-  pending: [
-    { status: "contacted", label: "Marcar contactado" },
-    { status: "cancelled", label: "Cancelar" },
-  ],
-  contacted: [{ status: "cancelled", label: "Cancelar" }],
-  confirmed: [
-    { status: "preparing", label: "Pasar a preparación" },
-    { status: "cancelled", label: "Cancelar venta y reponer" },
-  ],
-  preparing: [
-    { status: "ready", label: "Marcar listo" },
-    { status: "cancelled", label: "Cancelar venta y reponer" },
-  ],
-  ready: [
-    { status: "completed", label: "Marcar entregado" },
-    { status: "cancelled", label: "Cancelar venta y reponer" },
-  ],
 };
 
 export default async function WebOrdersPage({
@@ -65,7 +33,8 @@ export default async function WebOrdersPage({
     );
   }
 
-  const selected = (await searchParams).estado ?? "open";
+  const requested = (await searchParams).estado;
+  const selected = requested && ["open", "all", ...Object.keys(labels)].includes(requested) ? requested : "open";
   let orderQuery = supabase
     .from("web_orders")
     .select("*, web_order_items(*)")
@@ -90,9 +59,6 @@ export default async function WebOrdersPage({
   if (error) throw new Error("No se pudieron cargar los pedidos web.");
   if (paymentMethodsError) throw new Error("No se pudieron cargar los medios de pago.");
 
-  const activePaymentMethods = (paymentMethods ?? []).filter((method) => method.is_active);
-  const paymentMethodsById = new Map((paymentMethods ?? []).map((method) => [method.id, method]));
-
   return (
     <div className="page-container">
       <header className="page-header">
@@ -112,83 +78,9 @@ export default async function WebOrdersPage({
       </nav>
 
       <section className="web-order-admin-list">
-        {orders?.length ? orders.map((order) => {
-          const paymentMethod = order.payment_method_id
-            ? paymentMethodsById.get(order.payment_method_id)
-            : null;
-          const paymentLabel = paymentMethod
-            ? `${paymentMethod.name}${order.payment_card_type === "debit" ? " de débito" : order.payment_card_type === "credit" ? " de crédito" : ""}`
-            : null;
-          const surcharge = Number(order.payment_surcharge_amount ?? 0);
-          const chargedTotal = Number(order.total) + surcharge;
-          const canConfirm = order.status === "pending" || order.status === "contacted";
-
-          return (
-            <details className="web-order-admin-card" key={order.id}>
-              <summary>
-                <span className="summary-strip-icon"><ShoppingBag /></span>
-                <div>
-                  <strong>{order.order_number}</strong>
-                  <small>{order.customer_name} · {order.customer_type === "wholesale" ? "Mayorista" : "Minorista"}</small>
-                </div>
-                <span className={`web-order-admin-status status-${order.status}`}>{labels[order.status]}</span>
-                <strong>{ars.format(Number(order.total))}</strong>
-                <small>{dateTime.format(new Date(order.created_at))}</small>
-              </summary>
-
-              <div className="web-order-admin-detail">
-                <div className="web-order-customer">
-                  <span><strong>Cliente</strong>{order.customer_name}</span>
-                  <span><strong>Teléfono</strong><a href={`tel:${order.customer_phone}`}>{order.customer_phone}</a></span>
-                  <span><strong>Ubicación</strong>{order.customer_locality}, {order.customer_province}</span>
-                  {order.customer_business_name ? <span><strong>Comercio</strong>{order.customer_business_name}</span> : null}
-                </div>
-
-                <div className="web-order-items">
-                  {order.web_order_items.map((item) => (
-                    <div key={item.id}>
-                      <span><Box /> <span>{item.product_name}<small>{quantity.format(Number(item.quantity))} × {ars.format(Number(item.unit_price))}</small></span></span>
-                      <strong>{ars.format(Number(item.line_total))}</strong>
-                    </div>
-                  ))}
-                </div>
-
-                {order.notes ? <p className="web-order-note"><strong>Nota del cliente:</strong> {order.notes}</p> : null}
-                {order.sale_id ? (
-                  <div className="web-order-sale-summary">
-                    <span><strong>Venta registrada</strong>{paymentLabel ?? "Medio de pago registrado"}</span>
-                    <span><strong>Total cobrado</strong>{ars.format(chargedTotal)}</span>
-                    <Link className="button button-secondary" href={`/app/ventas/${order.sale_id}/comprobante`}><ExternalLink /> Ver comprobante</Link>
-                  </div>
-                ) : (
-                  <p className="web-order-stock-note"><strong>Stock sin afectar.</strong> Este pedido todavía no fue confirmado como venta.</p>
-                )}
-
-                <div className="web-order-admin-actions">
-                  <a className="button button-secondary" href={`https://wa.me/${order.customer_phone.replace(/\D/g, "")}`} rel="noreferrer" target="_blank"><MessageCircle /> WhatsApp</a>
-                  {canConfirm ? (
-                    <ConfirmWebOrderControl
-                      orderId={order.id}
-                      orderNumber={order.order_number}
-                      paymentMethods={activePaymentMethods}
-                      total={Number(order.total)}
-                    />
-                  ) : null}
-                  {nextStates[order.status]?.map((state) => (
-                    <form action={transitionWebOrderAction} key={state.status}>
-                      <input name="order_id" type="hidden" value={order.id} />
-                      <input name="status" type="hidden" value={state.status} />
-                      <button className={`button ${state.status === "completed" ? "button-primary" : state.status === "cancelled" ? "button-danger" : "button-secondary"}`} type="submit">
-                        {state.status === "cancelled" ? <XCircle /> : state.status === "completed" ? <CheckCircle2 /> : <Clock3 />}
-                        {state.label}
-                      </button>
-                    </form>
-                  ))}
-                </div>
-              </div>
-            </details>
-          );
-        }) : (
+        {orders?.length ? orders.map((order) => (
+          <WebOrderCard key={order.id} order={order} paymentMethods={paymentMethods ?? []} />
+        )) : (
           <div className="empty-state">
             <ShoppingBag />
             <h2>No hay pedidos en esta vista</h2>

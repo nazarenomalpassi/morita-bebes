@@ -1,7 +1,7 @@
 "use client";
 
 import { Save } from "lucide-react";
-import { useActionState } from "react";
+import { usePreservedActionState } from "@/lib/ui/use-preserved-action-state";
 
 import { saveCustomerAction } from "@/app/app/clientes/actions";
 import type { ActionState } from "@/lib/actions/form-state";
@@ -18,13 +18,13 @@ type CustomerValues = {
 };
 
 export function CustomerForm({ values = {} }: { values?: CustomerValues }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(
+  const { state, formAction: action, pending, onReset } = usePreservedActionState<ActionState>(
     saveCustomerAction,
     {},
   );
 
   return (
-    <form action={action} className="entity-form">
+    <form action={action} onReset={onReset} className="entity-form">
       <input name="id" type="hidden" value={values.id ?? ""} />
       <div className="form-grid">
         <label className="field-label form-span-2">
@@ -65,4 +65,3 @@ export function CustomerForm({ values = {} }: { values?: CustomerValues }) {
     </form>
   );
 }
-

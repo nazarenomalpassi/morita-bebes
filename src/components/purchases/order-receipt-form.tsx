@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { Check, LoaderCircle, PackageCheck } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   receivePurchaseOrderAction,
@@ -179,7 +181,7 @@ function OrderReceiptEditor({
 }
 
 export function OrderReceiptForm({ order }: { order: PurchaseOrder }) {
-  const [state, formAction, pending] = useActionState(
+  const [state, formAction, pending] = useSubmissionState(
     receivePurchaseOrderAction,
     initialState,
   );

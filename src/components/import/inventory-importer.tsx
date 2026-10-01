@@ -186,6 +186,7 @@ export function InventoryImporter({ canCommit }: { canCommit: boolean }) {
           </div>
           <div className="flex flex-wrap gap-2">
             <input
+              aria-label="Archivo de inventario Excel"
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="sr-only"
               onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}

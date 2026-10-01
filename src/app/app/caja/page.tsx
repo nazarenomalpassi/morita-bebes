@@ -9,17 +9,18 @@ import { cashMovementLabels, normalizeCashDashboard, type CashMovementType } fro
 import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { ars, dateTime } from "@/lib/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { isIsoDate } from "@/lib/date";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = { desde?: string; hasta?: string; caja?: string; tipo?: string; direccion?: string; buscar?: string; pagina?: string };
 const localDateTime = (value: string) => dateTime.format(new Date(value));
 const uuid = (value?: string) => value && /^[0-9a-f-]{36}$/i.test(value) ? value : undefined;
-const movementType = (value?: string) => value && value in cashMovementLabels ? value as CashMovementType : undefined;
+const movementType = (value?: string) => value && Object.hasOwn(cashMovementLabels, value) ? value as CashMovementType : undefined;
 const direction = (value?: string) => value === "credit" || value === "debit" ? value : undefined;
-const dateStart = (value?: string) => value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00-03:00` : undefined;
+const dateStart = (value?: string) => value && isIsoDate(value) ? `${value}T00:00:00-03:00` : undefined;
 const dateEnd = (value?: string) => {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  if (!value || !isIsoDate(value)) return undefined;
   const next = new Date(`${value}T12:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
   return `${next.toISOString().slice(0, 10)}T00:00:00-03:00`;
 };

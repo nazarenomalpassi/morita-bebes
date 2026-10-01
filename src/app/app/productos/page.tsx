@@ -119,7 +119,7 @@ export default async function ProductsPage({
         </div>
       </header>
 
-      <form className="mt-7 grid gap-3 border-y border-[var(--line)] py-4 md:grid-cols-[minmax(13rem,1fr)_minmax(10rem,0.7fr)_minmax(10rem,0.7fr)_minmax(9rem,0.55fr)_auto]" method="get">
+      <form className="mt-7 grid gap-3 border-y border-[var(--line)] py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(13rem,1fr)_minmax(10rem,0.7fr)_minmax(10rem,0.7fr)_minmax(9rem,0.55fr)_auto]" method="get">
         <label className="input-shell input-shell-start">
           <span className="sr-only">Buscar producto</span>
           <Search aria-hidden="true" size={17} />
@@ -171,9 +171,11 @@ export default async function ProductsPage({
                 {products.map((product) => (
                   <tr className={product.is_active ? "" : "opacity-60"} key={product.id}>
                     <td data-label="Producto">
+                      <div className="entity-copy">
                       <strong>{product.name}</strong>
                       <small>SKU {product.sku} · {product.brands?.name ?? "Sin marca"} · {product.categories?.name ?? "Sin categoría"}</small>
                       <small>{product.suppliers?.business_name ?? "Proveedor pendiente"}</small>
+                      </div>
                     </td>
                     <td data-label="Stock">{quantity.format(Number(product.current_stock))} / mín. {quantity.format(Number(product.min_stock))}</td>
                     <ProductPriceCells

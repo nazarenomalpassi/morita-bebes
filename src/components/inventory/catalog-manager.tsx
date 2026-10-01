@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { ChevronDown, CircleOff, Pencil, Plus, Power, PowerOff } from "lucide-react";
-import { useActionState } from "react";
+
 
 import {
   createBrandAction,
@@ -25,7 +27,7 @@ type Category = {
 type Brand = { id: string; is_active: boolean; name: string };
 
 function NewCategoryForm() {
-  const [state, action] = useActionState(createCategoryAction, initialInventoryActionState);
+  const [state, action] = useSubmissionState(createCategoryAction, initialInventoryActionState);
   return (
     <form action={action} className="grid gap-3 border-b border-[var(--line)] pb-5 sm:grid-cols-[minmax(10rem,1fr)_auto]">
       <div>
@@ -42,7 +44,7 @@ function NewCategoryForm() {
 function CategoryRow({ category }: { category: Category }) {
   const action = updateCategoryAction.bind(null, category.id);
   const toggleAction = toggleCategoryAction.bind(null, category.id);
-  const [state, formAction] = useActionState(action, initialInventoryActionState);
+  const [state, formAction] = useSubmissionState(action, initialInventoryActionState);
   return (
     <details className="group border-b border-[var(--line)] last:border-0">
       <summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
@@ -64,7 +66,7 @@ function CategoryRow({ category }: { category: Category }) {
 }
 
 function NewBrandForm() {
-  const [state, action] = useActionState(createBrandAction, initialInventoryActionState);
+  const [state, action] = useSubmissionState(createBrandAction, initialInventoryActionState);
   return (
     <form action={action} className="grid gap-3 border-b border-[var(--line)] pb-5 sm:grid-cols-[minmax(10rem,1fr)_auto]">
       <div><label className="field-label mb-1.5" htmlFor="new-brand-name">Nueva marca</label><input className="field-input" id="new-brand-name" maxLength={100} name="name" placeholder="Ej.: Pampers" required /><FieldError name="name" state={state} /></div>
@@ -77,7 +79,7 @@ function NewBrandForm() {
 function BrandRow({ brand }: { brand: Brand }) {
   const action = updateBrandAction.bind(null, brand.id);
   const toggleAction = toggleBrandAction.bind(null, brand.id);
-  const [state, formAction] = useActionState(action, initialInventoryActionState);
+  const [state, formAction] = useSubmissionState(action, initialInventoryActionState);
   return (
     <details className="group border-b border-[var(--line)] last:border-0">
       <summary className="grid min-h-16 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">

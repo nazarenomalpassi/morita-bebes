@@ -317,7 +317,8 @@ export async function updateProductAction(
     return { status: "error", message: "Revisá los campos indicados.", fieldErrors: parsed.errors };
   }
   const requestedStock = numberValue(formData, "current_stock");
-  if (!Number.isFinite(requestedStock) || requestedStock < 0) {
+  const originalStock = numberValue(formData, "original_stock");
+  if (!Number.isFinite(requestedStock) || requestedStock < 0 || !Number.isFinite(originalStock) || originalStock < 0) {
     return {
       status: "error",
       message: "Revisá los campos indicados.",
@@ -334,44 +335,32 @@ export async function updateProductAction(
     return { status: "error", message: "Revisá los datos del producto.", fieldErrors: productErrors };
   }
 
-  const { data, error } = await context.supabase
-    .from("products")
-    .update(parsed.data)
-    .eq("id", productId)
-    .eq("organization_id", context.organization.id)
-    .select("id, current_stock")
-    .maybeSingle();
+  const { data, error } = await context.supabase.rpc("update_product_details", {
+    p_organization_id: context.organization.id,
+    p_product_id: productId,
+    p_values: parsed.data,
+    p_original_stock: originalStock,
+    p_requested_stock: requestedStock,
+  });
 
+  if (error?.message.includes("Product stock changed while editing")) return {
+    status: "error",
+    message: "El stock cambió mientras editabas. Actualizá la página, revisá el stock actual y volvé a guardar la corrección.",
+    fieldErrors: { current_stock: "Otra venta o movimiento cambió el stock. No se guardó ningún cambio." },
+  };
   if (error) return databaseErrorState(error);
   if (!data) return { status: "error", message: "El producto no existe o no tenés acceso." };
-
-  const stockDelta = requestedStock - Number(data.current_stock);
-  if (Math.abs(stockDelta) > 0.000_001) {
-    const { error: movementError } = await context.supabase.rpc("adjust_inventory", {
-      p_organization_id: context.organization.id,
-      p_product_id: productId,
-      p_quantity_delta: stockDelta,
-      p_reason: `Stock total actualizado desde la edición del producto a ${requestedStock}`,
-    });
-    if (movementError) {
-      revalidatePath("/app/productos");
-      revalidatePath(`/app/productos/${productId}`);
-      revalidatePath(`/app/productos/${productId}/editar`);
-      revalidatePath("/app");
-      return {
-        status: "error",
-        message: "Los datos del producto se guardaron, pero el stock no pudo actualizarse. Volvé a intentarlo.",
-      };
-    }
-  }
 
   revalidatePath("/app/productos");
   revalidatePath(`/app/productos/${productId}`);
   revalidatePath(`/app/productos/${productId}/editar`);
   revalidatePath("/app");
+  revalidatePath("/app/ventas");
+  revalidatePath("/app/compras");
+  revalidatePath("/tienda", "layout");
   return {
     status: "success",
-    message: stockDelta === 0
+    message: requestedStock === originalStock
       ? "Producto actualizado correctamente."
       : "Producto y stock actualizados correctamente.",
   };

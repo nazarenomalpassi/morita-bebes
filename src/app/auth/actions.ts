@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { passwordField } from "@/lib/actions/form-state";
 
 export type FormState = {
   error?: string;
@@ -46,7 +47,7 @@ export async function authenticateAction(
   formData: FormData,
 ): Promise<FormState> {
   const email = field(formData, "email").toLowerCase();
-  const password = field(formData, "password");
+  const password = passwordField(formData, "password");
 
   if (!email || !email.includes("@")) {
     return { error: "Ingresá un correo válido." };
@@ -92,8 +93,8 @@ export async function updatePasswordAction(
   _previousState: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const password = field(formData, "password");
-  const confirmation = field(formData, "password_confirmation");
+  const password = passwordField(formData, "password");
+  const confirmation = passwordField(formData, "password_confirmation");
   const next = safePasswordDestination(field(formData, "next"));
   if (password.length < 8) return { error: "La contraseña debe tener al menos 8 caracteres." };
   if (password !== confirmation) return { error: "Las contraseñas no coinciden." };

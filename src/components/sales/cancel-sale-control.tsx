@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { Ban, RotateCcw, X } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useState } from "react";
 
 import {
   cancelSaleAction,
@@ -16,7 +18,7 @@ export function CancelSaleControl({ saleId, compact = false }: {
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [state, action, pending] = useActionState(cancelSaleAction, initialState);
+  const [state, action, pending] = useSubmissionState(cancelSaleAction, initialState);
 
   return (
     <>

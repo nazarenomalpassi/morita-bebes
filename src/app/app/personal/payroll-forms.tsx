@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { Calculator, CircleDollarSign, Save } from "lucide-react";
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -32,7 +34,7 @@ export function CompensationForm({
   employee: PayrollEmployeeSummary;
   month: string;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveCompensationAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(saveCompensationAction, {});
   return (
     <form action={action} className="entity-form payroll-config-form">
       <input name="employee_id" type="hidden" value={employee.id} />
@@ -67,7 +69,7 @@ export function SettlementForm({
   paymentMethods: Array<{ id: string; name: string }>;
 }) {
   const router = useRouter();
-  const [state, action, pending] = useActionState<ActionState, FormData>(settlePayrollAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(settlePayrollAction, {});
   const [selectedMonth, setSelectedMonth] = useState(month);
   const [combined, setCombined] = useState(false);
   const [methodId, setMethodId] = useState(paymentMethods[0]?.id ?? "");
@@ -146,7 +148,7 @@ export function PaymentForm({
   total: number;
   paymentMethods?: Array<{ id: string; name: string }>;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(markPayrollPaidAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(markPayrollPaidAction, {});
   const [combinedPayment, setCombinedPayment] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(paymentMethods[0]?.id ?? "");
   const [paymentAmounts, setPaymentAmounts] = useState<Record<string, string>>({});

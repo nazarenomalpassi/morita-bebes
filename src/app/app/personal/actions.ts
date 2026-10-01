@@ -52,9 +52,10 @@ export async function saveEmployeeAction(
     notes: parsed.data.notes || null,
   };
   const result = parsed.data.id
-    ? await supabase.from("employees").update(payload).eq("id", parsed.data.id).eq("organization_id", organization.id)
-    : await supabase.from("employees").insert({ ...payload, base_salary: 0, organization_id: organization.id });
+    ? await supabase.from("employees").update(payload).eq("id", parsed.data.id).eq("organization_id", organization.id).select("id").maybeSingle()
+    : await supabase.from("employees").insert({ ...payload, base_salary: 0, organization_id: organization.id }).select("id").single();
   if (result.error) return { error: friendlyDatabaseError(result.error) };
+  if (!result.data) return { error: "El empleado ya no existe o no está disponible." };
   revalidatePath("/app/personal");
   return { message: parsed.data.id ? "Empleado actualizado." : "Empleado agregado." };
 }
@@ -64,12 +65,13 @@ export async function toggleEmployeeAction(formData: FormData) {
   const status = textField(formData, "status");
   if (!z.uuid().safeParse(id).success || !["active", "inactive"].includes(status)) return;
   const { organization, supabase } = await requireActionContext(["owner", "admin"]);
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("employees")
     .update({ status: status as "active" | "inactive" })
     .eq("id", id)
-    .eq("organization_id", organization.id);
+    .eq("organization_id", organization.id).select("id").maybeSingle();
   if (error) throw new Error(friendlyDatabaseError(error));
+  if (!data) throw new Error("El empleado ya no existe o no está disponible.");
   revalidatePath("/app/personal");
 }
 

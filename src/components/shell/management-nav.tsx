@@ -106,6 +106,7 @@ export function ManagementNav({
                 href={href}
                 key={href}
                 onClick={onNavigate}
+                prefetch={false}
               >
                 <Icon size={18} />
                 <span>{label}</span>

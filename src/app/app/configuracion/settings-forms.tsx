@@ -1,7 +1,9 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { ArrowLeftRight, Banknote, CreditCard, Save } from "lucide-react";
-import { useActionState } from "react";
+
 
 import {
   savePaymentSurchargesAction,
@@ -18,7 +20,7 @@ type Settings = {
 };
 
 export function SettingsForm({ settings }: { settings: Settings }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveSettingsAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(saveSettingsAction, {});
   return (
     <form action={action} className="entity-form">
       <div className="form-grid">
@@ -41,7 +43,7 @@ export function PaymentMethodsForm({
   debitSurchargePercent: number;
   creditSurchargePercent: number;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(savePaymentSurchargesAction, {});
+  const [state, action, pending] = useSubmissionState<ActionState, FormData>(savePaymentSurchargesAction, {});
 
   return (
     <form action={action} className="payment-settings-form">

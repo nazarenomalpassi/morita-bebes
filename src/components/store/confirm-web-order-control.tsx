@@ -1,7 +1,10 @@
 "use client";
 
+import { useSubmissionState } from "@/lib/ui/use-submission-state";
+
 import { CheckCircle2, CreditCard, ShieldCheck } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useModalFocus } from "@/lib/ui/use-modal-focus";
 
 import {
   confirmWebOrderSaleAction,
@@ -24,16 +27,26 @@ export function ConfirmWebOrderControl({
   orderNumber,
   paymentMethods,
   total,
+  onConfirmed,
 }: {
   orderId: string;
   orderNumber: string;
   paymentMethods: PaymentMethod[];
   total: number;
+  onConfirmed: (order: NonNullable<ConfirmWebOrderState["order"]>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const [cardType, setCardType] = useState<"debit" | "credit" | "">("");
-  const [state, action, pending] = useActionState(confirmWebOrderSaleAction, initialState);
+  const confirm = useCallback(async (previous: ConfirmWebOrderState, formData: FormData) => {
+    const result = await confirmWebOrderSaleAction(previous, formData);
+    if (result.order && !result.error) onConfirmed(result.order);
+    return result;
+  }, [onConfirmed]);
+  const [state, action, pending] = useSubmissionState(confirm, initialState);
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeDialog = useCallback(() => { if (!pending) setOpen(false); }, [pending]);
+  useModalFocus(open, dialogRef, closeDialog);
   const selectedMethod = useMemo(
     () => paymentMethods.find((method) => method.id === paymentMethodId),
     [paymentMethodId, paymentMethods],
@@ -63,6 +76,8 @@ export function ConfirmWebOrderControl({
             aria-modal="true"
             className="sale-confirmation-dialog web-order-payment-dialog"
             role="dialog"
+            ref={dialogRef}
+            tabIndex={-1}
           >
             <div className="sale-confirmation-icon"><ShieldCheck aria-hidden="true" size={22} /></div>
             <p className="eyebrow">Pedido {orderNumber}</p>
