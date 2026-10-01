@@ -27,6 +27,12 @@ export function optionalUuid(formData: FormData, name: string) {
 }
 
 export function friendlyDatabaseError(error: { code?: string; message: string }) {
+  if (error.message.includes("Expense payment allocations must equal")) {
+    return "La suma de los medios de pago debe coincidir exactamente con el importe del gasto.";
+  }
+  if (error.message.includes("Expense payment allocations")) {
+    return "Revisá los medios de pago del gasto: deben estar activos y tener importes válidos.";
+  }
   if (error.message.includes("Daily cash closure is required")) {
     return "Hay un cierre de caja anterior pendiente. Completalo antes de registrar nuevas operaciones.";
   }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireActionContext } from "@/lib/actions/context";
+import { validateExpensePayments } from "@/lib/expenses/payments";
 import {
   friendlyDatabaseError,
   textField,
@@ -16,7 +17,6 @@ const expenseSchema = z.object({
   amount: z.number().positive().max(999_999_999),
   expense_date: z.iso.date(),
   notes: z.string().trim().max(1000),
-  payment_method_id: z.uuid(),
   category_id: z.union([z.uuid(), z.literal("")]),
   payroll_employee_id: z.union([z.uuid(), z.literal("")]),
   payroll_period_month: z.union([z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/), z.literal("")]),
@@ -32,7 +32,6 @@ export async function saveExpenseAction(
     amount: Number(textField(formData, "amount").replace(",", ".")),
     expense_date: textField(formData, "expense_date"),
     notes: textField(formData, "notes"),
-    payment_method_id: textField(formData, "payment_method_id"),
     category_id: textField(formData, "category_id"),
     payroll_employee_id: textField(formData, "payroll_employee_id"),
     payroll_period_month: textField(formData, "payroll_period_month"),
@@ -41,6 +40,15 @@ export async function saveExpenseAction(
   if (!parsed.success) {
     return { error: "Revisá la descripción, importe y fecha del gasto." };
   }
+
+  let rawPayments: unknown;
+  try {
+    rawPayments = JSON.parse(textField(formData, "payments"));
+  } catch {
+    return { error: "Revisá los medios de pago del gasto." };
+  }
+  const allocation = validateExpensePayments(rawPayments, parsed.data.amount);
+  if (allocation.error) return { error: allocation.error };
 
   const context = parsed.data.id
     ? await requireActionContext(["owner", "admin"])
@@ -79,7 +87,8 @@ export async function saveExpenseAction(
     amount: parsed.data.amount,
     expense_date: parsed.data.expense_date,
     category_id: parsed.data.category_id || null,
-    payment_method_id: parsed.data.payment_method_id,
+    payment_method_id: allocation.payments.length === 1 ? allocation.payments[0].payment_method_id : null,
+    payment_allocations: allocation.payments,
     notes: parsed.data.notes || null,
     payroll_employee_id: null,
     payroll_period_month: null,
@@ -91,13 +100,16 @@ export async function saveExpenseAction(
         .update(payload)
         .eq("id", parsed.data.id)
         .eq("organization_id", organization.id)
+        .select("id")
+        .maybeSingle()
     : await supabase.from("expenses").insert({
         ...payload,
         organization_id: organization.id,
         created_by: userId,
-      });
+      }).select("id").single();
 
   if (result.error) return { error: friendlyDatabaseError(result.error) };
+  if (!result.data) return { error: "El gasto ya no existe o no está disponible." };
   revalidatePath("/app");
   revalidatePath("/app/gastos");
   revalidatePath("/app/caja");

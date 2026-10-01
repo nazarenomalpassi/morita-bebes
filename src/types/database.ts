@@ -730,6 +730,7 @@ export type Database = {
           id: string
           notes: string | null
           organization_id: string
+          payment_allocations: Json
           payment_method_id: string | null
           payroll_employee_id: string | null
           payroll_period_month: string | null
@@ -750,6 +751,7 @@ export type Database = {
           id?: string
           notes?: string | null
           organization_id: string
+          payment_allocations?: Json
           payment_method_id?: string | null
           payroll_employee_id?: string | null
           payroll_period_month?: string | null
@@ -770,6 +772,7 @@ export type Database = {
           id?: string
           notes?: string | null
           organization_id?: string
+          payment_allocations?: Json
           payment_method_id?: string | null
           payroll_employee_id?: string | null
           payroll_period_month?: string | null

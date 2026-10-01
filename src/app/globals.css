@@ -4518,6 +4518,16 @@ details > summary::-webkit-details-marker {
 .sale-payment-allocation-head { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 1rem; }
 .sale-payment-allocation-row { min-width: 0; }
 .sale-payment-allocation-row > .field-label { width: 100%; }
+.expense-payment-allocation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.expense-fields { min-width: 0; margin-inline: 0; margin-bottom: 0; border: 0; padding: 0; }
+.expense-payment-allocation .field-label { min-width: 0; }
+.expense-payment-allocation > small { grid-column: 1 / -1; }
+.expense-payment-detail { display: grid; min-width: 0; gap: .2rem; }
+.expense-payment-detail small { color: var(--ink-muted); font-size: .74rem; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .expense-payment-allocation { grid-template-columns: minmax(0, 1fr); }
+  .expense-payment-allocation .sale-payment-allocation-head { flex-wrap: wrap; }
+}
 .sale-payment-card-row { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; padding-top: .2rem; }
 .sale-card-type { min-width: 0; margin: 0; border: 1px solid #d9d2e1; border-radius: 6px; padding: .75rem; }
 .sale-card-type legend { display: flex; align-items: center; gap: .4rem; padding: 0 .25rem; color: #55486f; font-size: .78rem; font-weight: 800; }
