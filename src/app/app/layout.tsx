@@ -1,13 +1,23 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import { SensitiveBalancesProvider } from "@/components/finance/sensitive-balances";
+import { ManagementLoadingScreen } from "@/components/shell/management-loading";
 import { ManagementShell } from "@/components/shell/management-shell";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-export default async function ManagementLayout({
+export default function ManagementLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <Suspense fallback={<main><ManagementLoadingScreen fullScreen /></main>}>
+      <AuthenticatedManagementLayout>{children}</AuthenticatedManagementLayout>
+    </Suspense>
+  );
+}
+
+async function AuthenticatedManagementLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const supabase = await createServerSupabaseClient();
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;

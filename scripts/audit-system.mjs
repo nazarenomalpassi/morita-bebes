@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 import ExcelJS from "exceljs";
+import { auditManagementLoading } from "./audit-management-loading.mjs";
 
 const root = process.cwd();
 const workspace = path.join(os.tmpdir(), "morita-system-audit");
@@ -44,7 +45,7 @@ async function attempt(name, callback, target = report.flows) {
   } catch (error) {
     if (target === report.flows && flowPage) {
       await flowPage.screenshot({ path: path.join(artifacts, `flow-${name.replaceAll(/[^a-zA-Z0-9]/g, "_")}.png`), fullPage: true });
-      await writeFile(path.join(artifacts, `flow-${name.replaceAll(/[^a-zA-Z0-9]/g, "_")}.txt`), await flowPage.locator("main").innerText());
+      await writeFile(path.join(artifacts, `flow-${name.replaceAll(/[^a-zA-Z0-9]/g, "_")}.txt`), await flowPage.locator("main:visible").innerText());
     }
     target.push({ name, passed: false, error: error.message });
     report.failures.push({ name, error: error.message });
@@ -75,8 +76,8 @@ async function inspect(page, route, role, width, height) {
     await page.setViewportSize({ width, height });
     const response = await page.goto(`${baseUrl}${route}`, { waitUntil: "domcontentloaded" });
     assert(response.status() < 400, `HTTP ${response.status()}`);
-    await page.locator("main").waitFor();
     await page.locator("h1:visible").first().waitFor();
+    await page.locator("main:visible").waitFor();
     assert.equal(await page.getByText("No pudimos cargar esta sección", { exact: true }).count(), 0);
     assert.equal(await page.locator("h1:visible").count(), 1, "One visible page heading is required");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -193,6 +194,7 @@ try {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await login(page, users.owner.email, password);
+    await auditManagementLoading({ page, context, browser, baseUrl, artifacts, attempt });
     const existingSearchFixtures = await value(owner.from("products").select("id").eq("organization_id", organization.id).like("sku", "UI-PREDICT-%"), "predictive fixtures");
     if (!existingSearchFixtures.length) await value(owner.from("products").insert(Array.from({ length: 55 }, (_, index) => ({
       organization_id: organization.id, name: `ZZ Predictivo ${String(index + 1).padStart(2, "0")}`, sku: `UI-PREDICT-${String(index + 1).padStart(2, "0")}`, cost_price: 500, retail_price: 1000, is_published: false,

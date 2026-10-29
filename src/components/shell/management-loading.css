@@ -1,0 +1,126 @@
+.management-loading {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: min(38rem, calc(100svh - 5rem));
+  place-items: center;
+  padding: 2rem max(1.25rem, env(safe-area-inset-right)) 2rem max(1.25rem, env(safe-area-inset-left));
+  background: var(--paper);
+  text-align: center;
+}
+
+.management-loading-fullscreen {
+  min-height: 100svh;
+  padding-top: max(2rem, env(safe-area-inset-top));
+  padding-bottom: max(2rem, env(safe-area-inset-bottom));
+}
+
+.management-loading-content {
+  display: grid;
+  justify-items: center;
+  max-width: 100%;
+}
+
+.management-loading-art {
+  position: relative;
+  display: grid;
+  width: 12rem;
+  height: 9rem;
+  place-items: center;
+}
+
+.management-loading-logo {
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 50%;
+}
+
+.management-loading-charm {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  fill: none;
+  animation: management-loading-sway 2.4s ease-in-out infinite;
+}
+
+.management-loading-moon {
+  top: 1.3rem;
+  left: 0.4rem;
+  color: var(--plum);
+}
+
+.management-loading-star {
+  top: 0.35rem;
+  right: 1rem;
+  color: #a26a54;
+  fill: var(--coral);
+  animation-delay: -0.8s;
+}
+
+.management-loading-heart {
+  right: 0.25rem;
+  bottom: 1.25rem;
+  color: #6b8c81;
+  fill: var(--mint);
+  animation-delay: -1.6s;
+}
+
+.management-loading-charm svg {
+  fill: inherit;
+}
+
+.management-loading-brand {
+  margin: 0.65rem 0 0;
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.management-loading-label {
+  margin: 0.4rem 0 0;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.management-loading-track {
+  width: 6rem;
+  height: 0.2rem;
+  overflow: hidden;
+  margin-top: 1.5rem;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.management-loading-track > span {
+  display: block;
+  width: 50%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--plum);
+  animation: management-loading-progress 1.6s linear infinite;
+}
+
+@keyframes management-loading-sway {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-3px) rotate(4deg); }
+}
+
+@keyframes management-loading-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .management-loading-charm,
+  .management-loading-track > span {
+    animation: none;
+    transform: none;
+  }
+
+  .management-loading-track > span {
+    width: 100%;
+    opacity: 0.55;
+  }
+}

@@ -1,0 +1,127 @@
+.management-nav .management-nav-link {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.management-nav .management-nav-link::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--lavender);
+  opacity: 0;
+  pointer-events: none;
+  content: "";
+  transition: opacity 160ms ease;
+}
+
+/* Keep the current-section marker outside the flex flow. */
+.management-nav .management-nav-link-active::before {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  margin: 0;
+  transform: translateY(-50%);
+}
+
+.management-nav .management-nav-icon-slot {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+
+.management-nav .management-nav-icon-slot svg {
+  margin: 0;
+}
+
+.management-nav .management-nav-icon {
+  transform-origin: center;
+  opacity: 1;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.management-nav .management-nav-progress {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.management-nav .management-nav-icon-slot[data-pending="true"] .management-nav-icon {
+  opacity: 0;
+  transition-delay: 100ms;
+}
+
+.management-nav .management-nav-icon-slot[data-pending="true"] .management-nav-progress {
+  opacity: 1;
+  transition-delay: 100ms;
+  animation: management-nav-spin 800ms linear infinite;
+}
+
+@keyframes management-nav-spin {
+  to { transform: rotate(360deg); }
+}
+
+.management-nav .management-nav-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.management-nav .management-nav-link:focus-visible {
+  outline: 2px solid var(--plum);
+  outline-offset: -2px;
+  color: var(--plum-dark);
+}
+
+.management-nav .management-nav-link:focus-visible::after {
+  opacity: 0.18;
+  transition: none;
+}
+
+.management-nav .management-nav-link:focus-visible .management-nav-icon {
+  transform: none;
+  transition: none;
+}
+
+.management-nav .management-nav-link:active::after {
+  opacity: 0.32;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .management-nav .management-nav-link:hover::after {
+    opacity: 0.22;
+  }
+
+  .management-nav .management-nav-link:hover:not(:focus-visible) .management-nav-icon {
+    transform: translateY(-1px) rotate(-5deg);
+  }
+
+  .management-nav .management-nav-link:active:not(:focus-visible) .management-nav-icon {
+    transform: scale(0.94);
+    transition-duration: 100ms;
+  }
+
+  .management-nav .management-nav-link:active::after {
+    opacity: 0.32;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .management-nav .management-nav-link .management-nav-icon {
+    transform: none !important;
+    transition: none;
+  }
+
+  .management-nav .management-nav-link::after {
+    transition: none;
+  }
+
+  .management-nav .management-nav-progress {
+    animation: none !important;
+    transition: none;
+  }
+}

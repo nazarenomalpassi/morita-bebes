@@ -1,0 +1,43 @@
+{
+  "scope": "Management application only: branded loading and sidebar feedback",
+  "date": "2026-10-29",
+  "changes": [
+    "Reuse the existing Morita PNG logo and brand colors in a lightweight loading component",
+    "Server Suspense fallback while the authenticated layout loads on initial visit or reload",
+    "Native route loading fallback during section navigation, without artificial minimum delays",
+    "Fine-pointer hover, press feedback, visible keyboard focus and stable active-link alignment",
+    "Native Next useLinkStatus feedback while a navigation request is pending",
+    "Reduced-motion variants and responsive safe-area spacing"
+  ],
+  "verification": {
+    "unitTestFilesPassed": 29,
+    "unitTestsPassed": 136,
+    "lint": "passed",
+    "typecheck": "passed",
+    "productionBuild": "passed against isolated local services; final browser rerun reused the same unchanged application build",
+    "pageViewportChecksPassed": 138,
+    "browserFlowsPassed": 22,
+    "finalFailures": 0,
+    "resolutions": ["375x812", "390x844", "430x932", "768x1024", "1024x768", "1366x768", "1920x1080"],
+    "newBrowserChecks": [
+      "Server-rendered initial fallback before hydration at five sizes",
+      "Reload removes the loader and restores usable product controls",
+      "Real throttled section navigation displays the branded fallback on desktop and mobile",
+      "A slow navigation can be interrupted by a different section",
+      "Transient RSC transport failure recovers without stuck loading feedback",
+      "Hover does not shift labels; keyboard focus and reduced motion work",
+      "Touch drawer closes correctly after navigation without horizontal overflow"
+    ],
+    "testHarnessAdjustment": "Wait for the visible page heading and visible main landmark; streaming temporarily contains an additional hidden server-rendered main element.",
+    "databaseSuites": "Not rerun for this presentation-only change",
+    "browser": "Chrome / Playwright; mobile and tablet emulation, not physical device testing"
+  },
+  "safety": {
+    "productionDataWrites": 0,
+    "migrations": 0,
+    "newDependencies": 0,
+    "storefrontSourceChanges": 0,
+    "businessRulesAndPermissions": "unchanged",
+    "functionalTestData": "isolated local Supabase only"
+  }
+}

@@ -8,6 +8,7 @@ import {
   ImagePlus,
   LayoutDashboard,
   Landmark,
+  LoaderCircle,
   Route,
   PackageSearch,
   ShieldCheck,
@@ -21,8 +22,10 @@ import {
   WalletCards,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
+
+import "./management-nav.css";
 
 type NavigationItem = {
   href: string;
@@ -84,6 +87,21 @@ export function getManagementSectionLabel(pathname: string) {
   return match?.label ?? "Gestión interna";
 }
 
+function NavigationLinkContent({ icon: Icon, label }: Pick<NavigationItem, "icon" | "label">) {
+  const { pending } = useLinkStatus();
+
+  return (
+    <>
+      <span aria-hidden="true" className="management-nav-icon-slot" data-pending={pending}>
+        <Icon className="management-nav-icon" size={18} />
+        <LoaderCircle className="management-nav-progress" size={18} />
+      </span>
+      <span className="management-nav-text">{label}</span>
+      <span className="sr-only management-nav-pending-label" role="status">{pending ? `Abriendo ${label}` : ""}</span>
+    </>
+  );
+}
+
 export function ManagementNav({
   onNavigate,
   role,
@@ -108,8 +126,7 @@ export function ManagementNav({
                 onClick={onNavigate}
                 prefetch={false}
               >
-                <Icon size={18} />
-                <span>{label}</span>
+                <NavigationLinkContent icon={Icon} label={label} />
               </Link>
             );
           })}
