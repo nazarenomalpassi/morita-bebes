@@ -258,6 +258,8 @@
   color: var(--plum-dark);
 }
 
+.payroll-projection span { color: var(--plum-dark); }
+
 .payroll-projection > div {
   display: grid;
   gap: 0.15rem;
@@ -3000,6 +3002,23 @@ details > summary::-webkit-details-marker {
 }
 
 /* Business analytics */
+.product-search { position: relative; min-width: 0; }
+.product-suggestions { position: absolute; z-index: 35; top: calc(100% + 0.35rem); right: 0; left: 0; max-height: 22rem; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: 0 8px 24px rgb(41 35 50 / 12%); }
+.product-suggestions button { display: grid; width: 100%; min-height: 3rem; gap: 0.2rem; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); padding: 0.7rem; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.product-suggestions button:hover, .product-suggestions button.is-active { background: var(--lavender-light, #f0edf7); }
+.product-suggestions strong { font-size: 0.8rem; }
+.product-suggestions small, .product-suggestions-status { color: var(--ink-muted); font-size: 0.72rem; }
+.product-suggestions-status { display: flex; align-items: center; gap: 0.4rem; padding: 0.65rem; }
+@media (min-width: 1440px) { .product-filters { grid-template-columns: minmax(13rem, 1.3fr) repeat(2, minmax(9rem, 1fr)) minmax(8rem, 0.8fr) minmax(8rem, 0.7fr) auto; } }
+.ranking-chart-scroll { max-height: 30rem; overflow-y: auto; margin-top: 0.6rem; }
+.analytics-scope-note { color: var(--ink-muted); font-size: 0.78rem; }
+.expense-report-table td small { display: block; margin-top: 0.2rem; }
+.report-pagination, .report-pagination > div { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.report-pagination { flex-wrap: wrap; padding-top: 0.8rem; color: var(--ink-muted); font-size: 0.75rem; }
+.analytics-advanced-grid.analytics-expense-filters { grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto; }
+@media (max-width: 900px) { .analytics-advanced-grid.analytics-expense-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .analytics-advanced-grid.analytics-expense-filters { grid-template-columns: 1fr; } }
+
 .analytics-page {
   max-width: 1520px;
 }
@@ -3080,9 +3099,10 @@ details > summary::-webkit-details-marker {
 
 .analytics-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   margin-top: 1.25rem;
-  overflow-x: auto;
+  overflow-x: visible;
   border-bottom: 1px solid var(--line);
 }
 

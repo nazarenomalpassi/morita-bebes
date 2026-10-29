@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-29",
+  "scope": "management_only",
+  "status": "verified",
+  "changes": [
+    "Products: debounced suggestions by name, SKU and barcode, shared filters and RLS, keyboard and touch selection, cancellation of stale requests.",
+    "Products: 10, 20 and 50 rows per page, preserving search/filters while navigating pages.",
+    "Reports: dedicated Expenses tab, date/category/employee/payment filters, current/previous KPIs, charts and paginated detail.",
+    "Combined expenses: counted once; payment-specific statistics use only that allocation. Cancelled expenses and payroll advances are excluded.",
+    "Expense Excel export reconciles to the selected filters; existing general exports are unchanged.",
+    "Product ranking: 10/20/50 choices (Top 5 preserved), bounded vertical chart scroll, most-sold first. SQL returns the union of top 50 by units and by revenue.",
+    "Mobile report tabs wrap to expose Expenses. Expense payment labels are separated. A pre-existing payroll projection contrast issue detected by regression tests was corrected."
+  ],
+  "permissions": "No role changes. Financial reports/export remain owner/admin only; product suggestions require an active organization membership.",
+  "database": {
+    "migration": "supabase/migrations/20261029130449_management_search_expense_reports.sql",
+    "applied_to_production": true,
+    "changes": "Only the topProducts selection inside get_business_analytics; no historical DML or table changes.",
+    "security_invoker_preserved": true,
+    "anonymous_execute_denied": true,
+    "authenticated_execute_preserved": true,
+    "private_backup": "Original report function and per-row fingerprints stored outside Git in the local morita-system-audit temporary directory.",
+    "integrity": {
+      "tables": 9,
+      "rows": 3782,
+      "changed_or_missing": 0,
+      "historical_closures": 73
+    },
+    "evidence": "2026-10-29-production-integrity.json"
+  },
+  "verification": {
+    "unit_files": 29,
+    "unit_tests": 136,
+    "current_sql_suites": 13,
+    "page_and_viewport_checks": 138,
+    "end_to_end_flows": 15,
+    "failures": 0,
+    "lint": "passed",
+    "typecheck": "passed",
+    "production_build": "passed; final browser rerun reused that exact build after a test selector correction",
+    "production_read_only_ranking_query": "passed",
+    "local_supabase_security_advisors_error_level": "passed",
+    "viewports": [
+      "375x812",
+      "390x844",
+      "430x932",
+      "768x1024",
+      "1024x768",
+      "1366x768",
+      "1920x1080"
+    ],
+    "focused_checks": [
+      "Predictive search through keyboard and emulated touch",
+      "Anonymous suggestions denied",
+      "10/20/50 actual product rows and pagination",
+      "Leading-zero barcode preserved",
+      "Combined expense/category/employee/date/payment reconciliation",
+      "Filtered Excel workbook totals and detail rows",
+      "10/20/50 rendered ranking bars and first-place ordering"
+    ],
+    "evidence": "2026-10-29-management-results.json"
+  },
+  "limits": [
+    "Browser emulation, not physical-device testing.",
+    "The 13 SQL suites cover current workflows; previously documented obsolete SQL fixtures are not counted."
+  ],
+  "manual_configuration_needed": false,
+  "environment_variables_added": false,
+  "ecommerce_changes": false,
+  "changed_files": [
+    "audits/2026-10-29-management-results.json",
+    "audits/2026-10-29-management-updates.json",
+    "audits/2026-10-29-production-integrity.json",
+    "scripts/audit-system.mjs",
+    "src/app/api/productos/sugerencias/route.ts",
+    "src/app/api/reportes/gastos/route.ts",
+    "src/app/app/productos/page.tsx",
+    "src/app/app/reportes/page.tsx",
+    "src/app/globals.css",
+    "src/components/inventory/product-search.tsx",
+    "src/components/reports/analytics-dashboard.tsx",
+    "src/components/reports/report-export.tsx",
+    "src/lib/inventory/product-search.test.ts",
+    "src/lib/inventory/product-search.ts",
+    "src/lib/reports/analytics.ts",
+    "src/lib/reports/expense-data.ts",
+    "src/lib/reports/expenses.test.ts",
+    "src/lib/reports/expenses.ts",
+    "src/lib/reports/product-ranking.test.ts",
+    "src/lib/reports/product-ranking.ts",
+    "supabase/migrations/20261029130449_management_search_expense_reports.sql",
+    "supabase/tests/verify_management_report_rankings.sql"
+  ]
+}

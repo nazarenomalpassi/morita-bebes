@@ -7,6 +7,7 @@ import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
+import ExcelJS from "exceljs";
 
 const root = process.cwd();
 const workspace = path.join(os.tmpdir(), "morita-system-audit");
@@ -103,7 +104,7 @@ async function inspect(page, route, role, width, height) {
 
 async function auditDatabase() {
   if (process.env.AUDIT_SKIP_DB === "1") return;
-  const currentSuites = new Set(["verify_backdated_expenses_after_closure.sql", "verify_card_payment_surcharges.sql", "verify_daily_cash_closures.sql", "verify_ecommerce_storefront.sql", "verify_employee_permissions.sql", "verify_expense_combined_payments.sql", "verify_functional_audit.sql", "verify_invoker_security.sql", "verify_manual_sale_surcharge.sql", "verify_personnel_payroll_cash_workflow.sql", "verify_safe_sale_submission_and_cancellation.sql", "verify_staff_product_update.sql"]);
+  const currentSuites = new Set(["verify_backdated_expenses_after_closure.sql", "verify_card_payment_surcharges.sql", "verify_daily_cash_closures.sql", "verify_ecommerce_storefront.sql", "verify_employee_permissions.sql", "verify_expense_combined_payments.sql", "verify_functional_audit.sql", "verify_invoker_security.sql", "verify_manual_sale_surcharge.sql", "verify_management_report_rankings.sql", "verify_personnel_payroll_cash_workflow.sql", "verify_safe_sale_submission_and_cancellation.sql", "verify_staff_product_update.sql"]);
   for (const file of (await readdir(path.join(root, "supabase/tests"))).filter((file) => file.startsWith("verify_") && file.endsWith(".sql") && (currentSuites.has(file) || process.env.AUDIT_INCLUDE_LEGACY === "1")).sort()) {
     await attempt(file, async () => {
       const sql = await readFile(path.join(root, "supabase/tests", file), "utf8");
@@ -126,6 +127,7 @@ try {
   await cp(path.join(root, "supabase/seed.sql"), path.join(workspace, "supabase/seed.sql"));
   console.log("Starting isolated LOCAL Supabase on ports 554xx; production is never written.");
   supabase(["start", "--exclude", "realtime,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,imgproxy"]);
+  supabase(["migration", "up", "--local"]);
   const settings = JSON.parse(supabase(["status", "--output", "json"]));
   assert(new URL(settings.API_URL).hostname === "127.0.0.1", "Only local Supabase is allowed");
 
@@ -191,6 +193,114 @@ try {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await login(page, users.owner.email, password);
+    const existingSearchFixtures = await value(owner.from("products").select("id").eq("organization_id", organization.id).like("sku", "UI-PREDICT-%"), "predictive fixtures");
+    if (!existingSearchFixtures.length) await value(owner.from("products").insert(Array.from({ length: 55 }, (_, index) => ({
+      organization_id: organization.id, name: `ZZ Predictivo ${String(index + 1).padStart(2, "0")}`, sku: `UI-PREDICT-${String(index + 1).padStart(2, "0")}`, cost_price: 500, retail_price: 1000, is_published: false,
+    }))), "local predictive fixtures");
+    await attempt("Management predictive search, keyboard selection and page sizes", async () => {
+      const anonymous = await fetch(`${baseUrl}/api/productos/sugerencias?q=Predictivo`);
+      assert.equal(anonymous.status, 401);
+      await page.goto(`${baseUrl}/app/productos?q=Predictivo`);
+      for (const size of [10, 20, 50]) {
+        await page.locator('[name="page_size"]').selectOption(String(size));
+        await page.getByRole("button", { name: "Filtrar", exact: true }).click();
+        await page.waitForURL((url) => url.searchParams.get("page_size") === String(size));
+        assert.equal(await page.locator(".product-price-table tbody tr").count(), size);
+      }
+      await page.getByRole("link", { name: "Página siguiente", exact: true }).click();
+      await page.waitForURL((url) => url.searchParams.get("page") === "2");
+      assert.equal(new URL(page.url()).searchParams.get("page_size"), "50");
+      assert.equal(await page.locator(".product-price-table tbody tr").count(), 5);
+      await page.goto(`${baseUrl}/app/productos`);
+      await page.setViewportSize({ width: 390, height: 844 });
+      const search = page.getByRole("combobox", { name: "Buscar producto", exact: true });
+      await search.fill("ZZ Pred");
+      await page.getByRole("option", { name: /ZZ Predictivo 01/ }).waitFor();
+      assert.equal(await page.getByRole("listbox").getByRole("option").count(), 8);
+      await page.screenshot({ path: path.join(artifacts, "management-predictive-mobile.png"), fullPage: false });
+      await search.press("ArrowDown");
+      await search.press("Enter");
+      await page.waitForURL((url) => url.searchParams.get("q") === "ZZ Predictivo 01");
+      assert.equal(await page.locator(".product-price-table tbody tr").count(), 1);
+      const barcode = await page.request.get(`${baseUrl}/api/productos/sugerencias?q=07791234567890`);
+      assert.equal((await barcode.json()).products[0].id, products[0].id);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), 0);
+      const touchContext = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 }, storageState: await context.storageState() });
+      try {
+        const touchPage = await touchContext.newPage();
+        await touchPage.goto(`${baseUrl}/app/productos`);
+        await touchPage.getByRole("combobox", { name: "Buscar producto", exact: true }).fill("Predictivo");
+        await touchPage.getByRole("option", { name: /ZZ Predictivo 02/ }).tap();
+        await touchPage.waitForURL((url) => url.searchParams.get("q") === "ZZ Predictivo 02");
+        assert.equal(await touchPage.locator(".product-price-table tbody tr").count(), 1);
+      } finally { await touchContext.close(); }
+    });
+    await attempt("Management expense statistics reconcile combined payments and filters", async () => {
+      const cash = methods.find((method) => method.code === "cash");
+      const transfer = methods.find((method) => method.code === "transfer");
+      const category = await value(owner.from("expense_categories").insert({ organization_id: organization.id, name: `Report ${Date.now()}`, is_payroll_advance: false }).select().single(), "report expense category");
+      const date = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
+      const fixture = { organization_id: organization.id, category_id: category.id, expense_date: date, created_by: users.owner.id };
+      await value(owner.from("expenses").insert([
+        { ...fixture, description: "Reporte combinado", amount: 1000, payment_method_id: null, payment_allocations: [{ payment_method_id: cash.id, amount: 400 }, { payment_method_id: transfer.id, amount: 600 }] },
+        { ...fixture, description: "Reporte efectivo", amount: 500, payment_method_id: cash.id, payment_allocations: [{ payment_method_id: cash.id, amount: 500 }] },
+      ]), "expense analytics fixtures");
+      const cancelled = await value(owner.from("expenses").insert({ ...fixture, description: "Reporte anulado", amount: 300, payment_method_id: cash.id, payment_allocations: [{ payment_method_id: cash.id, amount: 300 }] }).select().single(), "cancelled analytics fixture");
+      await value(owner.rpc("cancel_expense", { p_expense_id: cancelled.id, p_reason: "Anulacion de prueba local" }), "cancel analytics fixture");
+      await page.goto(`${baseUrl}/app/reportes?periodo=today&vista=expenses&gasto_categoria=${category.id}`);
+      const totalCard = page.locator(".analytics-kpi").filter({ hasText: "Total de gastos" });
+      const ars = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+      await totalCard.getByText(ars.format(1500), { exact: true }).waitFor();
+      assert.equal(await page.locator(".analytics-table tbody tr").count(), 2);
+      await page.locator('[name="gasto_pago"]').selectOption(cash.id);
+      await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
+      await page.waitForURL((url) => url.searchParams.get("gasto_pago") === cash.id);
+      await totalCard.getByText(ars.format(900), { exact: true }).waitFor();
+      assert.equal(await page.getByText("Reporte anulado", { exact: true }).count(), 0);
+      await page.locator('[name="gasto_empleado"]').selectOption(users.owner.id);
+      await page.getByRole("button", { name: "Aplicar filtros", exact: true }).click();
+      await page.waitForURL((url) => url.searchParams.get("gasto_empleado") === users.owner.id);
+      await totalCard.getByText(ars.format(900), { exact: true }).waitFor();
+      const previousDate = new Date(`${date}T12:00:00Z`); previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+      await page.locator('[name="desde"]').fill(previousDate.toISOString().slice(0, 10));
+      assert.equal(await page.locator('[name="periodo"]').inputValue(), "custom");
+      await page.getByRole("button", { name: "Aplicar", exact: true }).click();
+      await page.waitForURL((url) => url.searchParams.get("periodo") === "custom");
+      await totalCard.getByText(ars.format(900), { exact: true }).waitFor();
+      const exportHref = await page.getByRole("link", { name: "Exportar Excel", exact: true }).getAttribute("href");
+      assert(exportHref.startsWith("/api/reportes/gastos?"));
+      const download = await page.request.get(baseUrl + exportHref);
+      assert.equal(download.status(), 200);
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(Buffer.from(await download.body()));
+      assert.equal(workbook.getWorksheet("Resumen gastos").getCell("B4").value, 900);
+      assert.equal(workbook.getWorksheet("Detalle").rowCount, 3);
+      for (const [width, height] of [[375, 812], [390, 844], [768, 1024], [1024, 768], [1366, 768]]) {
+        await page.setViewportSize({ width, height });
+        assert((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 1);
+        const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+        assert.equal(axe.violations.filter((issue) => ["serious", "critical"].includes(issue.impact)).length, 0);
+        await page.screenshot({ path: path.join(artifacts, `management-expenses-${width}.png`), fullPage: true });
+      }
+    });
+    await attempt("Management report product ranking offers 10, 20 and 50", async () => {
+      const rankingProducts = await value(owner.from("products").select("id, current_stock").eq("organization_id", organization.id).like("sku", "UI-PREDICT-%"), "ranking fixtures");
+      for (const product of rankingProducts) if (Number(product.current_stock) < 2) await value(owner.rpc("adjust_inventory", { p_organization_id: organization.id, p_product_id: product.id, p_quantity_delta: 2 - Number(product.current_stock), p_reason: "LOCAL ranking fixture" }), "ranking fixture stock");
+      await value(owner.rpc("create_sale_with_payments", { p_organization_id: organization.id, p_items: rankingProducts.map((product) => ({ product_id: product.id, quantity: 1 })), p_payments: [{ payment_method_id: methods.find((method) => method.code === "cash").id, amount: rankingProducts.length * 1000 }] }), "ranking fixture sale");
+      await page.goto(`${baseUrl}/app/reportes?vista=products`);
+      for (const limit of [10, 20, 50]) {
+        await page.getByRole("combobox", { name: "Cantidad de productos", exact: true }).selectOption(String(limit));
+        assert.equal(await page.getByRole("combobox", { name: "Cantidad de productos", exact: true }).inputValue(), String(limit));
+        await page.waitForFunction((limit) => document.querySelectorAll('.ranking-chart-scroll .recharts-bar-rectangle').length === limit, limit);
+      }
+      const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
+      const ranking = await value(owner.rpc("get_business_analytics", { p_organization_id: organization.id, p_from: `${day.slice(0, 7)}-01`, p_to: day, p_compare_from: "2026-01-01", p_compare_to: "2026-01-01", p_goal_month: `${day.slice(0, 7)}-01` }), "ranking order");
+      const leader = ranking.topProducts.sort((a, b) => b.units - a.units || a.name.localeCompare(b.name, "es") || a.id.localeCompare(b.id))[0].name;
+      assert.equal(await page.locator('.ranking-chart-scroll .recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-value').first().textContent(), leader.length > 21 ? `${leader.slice(0, 20)}…` : leader);
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 1);
+      await page.screenshot({ path: path.join(artifacts, "management-ranking-50-mobile.png"), fullPage: true });
+    });
     const routes = ["/app", "/app/productos", "/app/productos/nuevo", `/app/productos/${products[0].id}`, `/app/productos/${products[0].id}/editar`, "/app/proveedores", "/app/proveedores/nuevo", `/app/proveedores/${supplier.id}/editar`, "/app/categorias", "/app/ventas", "/app/compras", "/app/clientes", "/app/gastos", "/app/caja", "/app/comisionistas", "/app/personal", "/app/reportes", "/app/pedidos-web", "/app/mayoristas", "/app/tienda", "/app/tienda/productos", "/app/usuarios", "/app/auditoria", "/app/configuracion", "/app/importar"];
     if (process.env.AUDIT_SKIP_PAGES !== "1") {
       for (const [width, height] of [[1366, 768], [390, 844]]) for (const route of routes) await inspect(page, route, "owner", width, height);

@@ -9,6 +9,7 @@ export type ReportPreset =
   | "custom";
 
 export type ReportSearchParams = {
+  vista?: string;
   periodo?: string;
   desde?: string;
   hasta?: string;
@@ -17,6 +18,9 @@ export type ReportSearchParams = {
   producto?: string;
   empleado?: string;
   pago?: string;
+  gasto_categoria?: string;
+  gasto_empleado?: string;
+  gasto_pago?: string;
 };
 
 export type AnalyticsSummary = {

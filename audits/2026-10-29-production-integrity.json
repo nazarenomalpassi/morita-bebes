@@ -1,0 +1,60 @@
+{
+  "checkedAt": "2026-10-29T13:37:53.447Z",
+  "checks": [
+    {
+      "table": "products",
+      "existing": 997,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "sales",
+      "existing": 1238,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "sale_items",
+      "existing": 794,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "expenses",
+      "existing": 35,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "payroll_settlements",
+      "existing": 2,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "payroll_movements",
+      "existing": 7,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "cash_movements",
+      "existing": 490,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "daily_cash_closures",
+      "existing": 73,
+      "changedOrMissing": 0,
+      "added": 0
+    },
+    {
+      "table": "daily_cash_closure_items",
+      "existing": 146,
+      "changedOrMissing": 0,
+      "added": 0
+    }
+  ],
+  "rankingExpanded": true
+}

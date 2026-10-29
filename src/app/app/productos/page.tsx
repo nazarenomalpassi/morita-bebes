@@ -13,24 +13,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ProductPriceCells } from "@/components/inventory/product-price-cells";
+import { ProductSearch } from "@/components/inventory/product-search";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
+import { normalizeProductSearch, productPageSize, queryManagementProducts } from "@/lib/inventory/product-search";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-const PAGE_SIZE = 50;
 const quantity = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 3 });
 
 export const dynamic = "force-dynamic";
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
-}
-
-function safeSearch(value: string) {
-  return value
-    .slice(0, 80)
-    .replace(/[^a-zA-Z0-9À-ÿ\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function pageHref(params: URLSearchParams, page: number) {
@@ -49,7 +42,8 @@ export default async function ProductsPage({
   const organization = await getCurrentOrganization(supabase);
   if (!organization) redirect("/app");
 
-  const q = safeSearch(first(params.q));
+  const q = normalizeProductSearch(first(params.q));
+  const pageSize = productPageSize(first(params.page_size));
   const categoryId = first(params.category);
   const supplierId = first(params.supplier);
   const status = first(params.status) || "active";
@@ -71,34 +65,23 @@ export default async function ProductsPage({
       .order("business_name"),
   ]);
 
-  const from = (currentPage - 1) * PAGE_SIZE;
-  let productsQuery = supabase
-    .from("products")
-    .select("id, name, sku, cost_price, retail_price, wholesale_price, current_stock, min_stock, needs_restock, is_active, category_id, default_supplier_id, categories(name), brands(name), suppliers(business_name)", { count: "exact" })
-    .eq("organization_id", organization.id);
-  if (q) {
-    const pattern = `%${q}%`;
-    productsQuery = productsQuery.or(`name.ilike.${pattern},sku.ilike.${pattern},barcode.ilike.${pattern}`);
-  }
-  if (/^[0-9a-f-]{36}$/i.test(categoryId)) productsQuery = productsQuery.eq("category_id", categoryId);
-  if (/^[0-9a-f-]{36}$/i.test(supplierId)) productsQuery = productsQuery.eq("default_supplier_id", supplierId);
-  if (status === "active") productsQuery = productsQuery.eq("is_active", true);
-  if (status === "inactive") productsQuery = productsQuery.eq("is_active", false);
-  if (status === "low") productsQuery = productsQuery.eq("is_active", true).eq("needs_restock", true);
-  if (status === "unassigned") productsQuery = productsQuery.is("default_supplier_id", null);
-  const { count, data: products, error } = await productsQuery.order("name").range(from, from + PAGE_SIZE - 1);
+  const filters = { q, category: categoryId, supplier: supplierId, status };
+  const from = (currentPage - 1) * pageSize;
+  const { count, data: products, error } = await queryManagementProducts(supabase, organization.id, filters, true).range(from, from + pageSize - 1);
 
   if (error || categoriesResult.error || suppliersResult.error) {
     throw new Error("No se pudo consultar el inventario.");
   }
 
   const total = count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const normalizedParams = new URLSearchParams();
   if (q) normalizedParams.set("q", q);
   if (categoryId) normalizedParams.set("category", categoryId);
   if (supplierId) normalizedParams.set("supplier", supplierId);
   if (status) normalizedParams.set("status", status);
+  normalizedParams.set("page_size", String(pageSize));
+  if (currentPage > totalPages) redirect(pageHref(normalizedParams, totalPages));
 
   return (
     <div className="page-container">
@@ -119,12 +102,8 @@ export default async function ProductsPage({
         </div>
       </header>
 
-      <form className="mt-7 grid gap-3 border-y border-[var(--line)] py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(13rem,1fr)_minmax(10rem,0.7fr)_minmax(10rem,0.7fr)_minmax(9rem,0.55fr)_auto]" method="get">
-        <label className="input-shell input-shell-start">
-          <span className="sr-only">Buscar producto</span>
-          <Search aria-hidden="true" size={17} />
-          <input className="field-input" defaultValue={q} maxLength={80} name="q" placeholder="Nombre, SKU o código" />
-        </label>
+      <form className="product-filters mt-7 grid gap-3 border-y border-[var(--line)] py-4 sm:grid-cols-2 lg:grid-cols-3" method="get">
+        <ProductSearch filters={filters} key={normalizedParams.toString()} />
         <label>
           <span className="sr-only">Filtrar por categoría</span>
           <select className="field-input" defaultValue={categoryId} name="category">
@@ -147,6 +126,12 @@ export default async function ProductsPage({
             <option value="low">Para reponer</option>
             <option value="unassigned">Sin proveedor</option>
             <option value="inactive">Inactivos</option>
+          </select>
+        </label>
+        <label>
+          <span className="sr-only">Productos por página</span>
+          <select className="field-input" defaultValue={pageSize} name="page_size">
+            <option value={10}>10 por página</option><option value={20}>20 por página</option><option value={50}>50 por página</option>
           </select>
         </label>
         <button className="button button-secondary gap-2" type="submit"><Search size={17} /> Filtrar</button>

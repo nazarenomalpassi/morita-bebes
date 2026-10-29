@@ -1,6 +1,7 @@
-import { Download, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 
 import { AnalyticsDashboard } from "@/components/reports/analytics-dashboard";
+import { ReportExport } from "@/components/reports/report-export";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
 import {
   normalizeAnalyticsReport,
@@ -11,6 +12,7 @@ import {
   type ReportSearchParams,
 } from "@/lib/reports/analytics";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { loadExpenseAnalytics } from "@/lib/reports/expense-data";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,7 @@ function lastValue(value: string | string[] | undefined) {
 
 function normalizeSearchParams(raw: RawSearchParams): ReportSearchParams {
   return {
+    vista: lastValue(raw.vista),
     periodo: lastValue(raw.periodo),
     desde: lastValue(raw.desde),
     hasta: lastValue(raw.hasta),
@@ -30,6 +33,9 @@ function normalizeSearchParams(raw: RawSearchParams): ReportSearchParams {
     producto: lastValue(raw.producto),
     empleado: lastValue(raw.empleado),
     pago: lastValue(raw.pago),
+    gasto_categoria: lastValue(raw.gasto_categoria),
+    gasto_empleado: lastValue(raw.gasto_empleado),
+    gasto_pago: lastValue(raw.gasto_pago),
   };
 }
 
@@ -81,14 +87,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const discountSummary = normalizeDiscountSummary(discountResult.data);
   report.summary.current = { ...report.summary.current, ...discountSummary.current };
   report.summary.previous = { ...report.summary.previous, ...discountSummary.previous };
-  const query = new URLSearchParams({ desde: period.from, hasta: period.to });
+  const expenseReport = await loadExpenseAnalytics(supabase, organization.id, period, search, report.filters.employees);
 
   return <div className="page-container analytics-page">
     <header className="page-header analytics-page-header">
       <div><span className="eyebrow">Análisis del negocio</span><h1 className="page-title mt-2">Reportes y estadísticas</h1><p className="page-lead">Indicadores comerciales, metas, ventas, stock y rentabilidad con datos conciliados.</p></div>
-      <a className="button button-secondary" href={`/api/reportes/gestion?${query.toString()}`}><Download size={17} /> Exportar Excel</a>
+      <ReportExport from={period.from} to={period.to} />
     </header>
-    <AnalyticsDashboard period={period} report={report} search={search} />
+    <AnalyticsDashboard expenseReport={expenseReport} period={period} report={report} search={search} />
   </div>;
 }
 

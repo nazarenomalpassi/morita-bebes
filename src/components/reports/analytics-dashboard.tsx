@@ -8,6 +8,7 @@ import {
   BarChart3,
   Boxes,
   CalendarRange,
+  ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   Clock3,
@@ -44,6 +45,8 @@ import {
 
 import type { AnalyticsReport, ReportSearchParams, ResolvedReportPeriod } from "@/lib/reports/analytics";
 import { percentageChange } from "@/lib/reports/analytics";
+import type { ExpenseAnalyticsReport } from "@/lib/reports/expenses";
+import { rankProducts, rankingLimit } from "@/lib/reports/product-ranking";
 
 import { MonthlyGoalForm } from "./monthly-goal-form";
 
@@ -55,7 +58,7 @@ const shortDate = new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "sho
 const monthName = new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric", timeZone: "UTC" });
 const palette = ["#5d506d", "#8f82c9", "#e88f82", "#3f9483", "#d99a3c", "#857b73", "#ba6e8d", "#6a8ca6"];
 
-type Tab = "summary" | "sales" | "products" | "profitability";
+type Tab = "summary" | "sales" | "products" | "expenses" | "profitability";
 
 function formatDate(value: string) {
   return shortDate.format(new Date(`${value}T00:00:00Z`));
@@ -65,12 +68,12 @@ function comparisonLabel(period: ResolvedReportPeriod) {
   return `${formatDate(period.compareFrom)} al ${formatDate(period.compareTo)}`;
 }
 
-function Delta({ current, previous, compare }: { current: number | null; previous: number | null; compare: boolean }) {
+function Delta({ current, previous, compare, inverse = false }: { current: number | null; previous: number | null; compare: boolean; inverse?: boolean }) {
   if (!compare) return <span className="metric-context">Comparación desactivada</span>;
   const change = percentageChange(current, previous);
   if (change === null) return <span className="metric-context">Sin período comparable</span>;
   const UpIcon = change >= 0 ? ArrowUpRight : ArrowDownRight;
-  return <span className={change >= 0 ? "metric-delta metric-delta-up" : "metric-delta metric-delta-down"}><UpIcon size={14} /> {percent.format(Math.abs(change))}% vs. anterior</span>;
+  return <span className={(inverse ? change <= 0 : change >= 0) ? "metric-delta metric-delta-up" : "metric-delta metric-delta-down"}><UpIcon size={14} /> {percent.format(Math.abs(change))}% vs. anterior</span>;
 }
 
 function KpiCard({
@@ -82,6 +85,7 @@ function KpiCard({
   previous,
   compare,
   href,
+  inverse,
 }: {
   label: string;
   value: string;
@@ -91,10 +95,11 @@ function KpiCard({
   previous: number | null;
   compare: boolean;
   href?: string;
+  inverse?: boolean;
 }) {
   const content = <>
     <span className="analytics-kpi-icon"><Icon size={19} /></span>
-    <div className="analytics-kpi-copy"><span>{label}</span><strong>{value}</strong><small>{detail}</small><Delta compare={compare} current={current} previous={previous} /></div>
+    <div className="analytics-kpi-copy"><span>{label}</span><strong>{value}</strong><small>{detail}</small><Delta compare={compare} current={current} previous={previous} inverse={inverse} /></div>
     {href ? <ChevronRight className="analytics-kpi-link" size={18} /> : null}
   </>;
   return href ? <Link className="analytics-kpi" href={href}>{content}</Link> : <article className="analytics-kpi">{content}</article>;
@@ -121,8 +126,17 @@ function ChartPanel({ eyebrow, title, icon: Icon, actions, children, className =
   </section>;
 }
 
-function ReportFilters({ report, period, search }: { report: AnalyticsReport; period: ResolvedReportPeriod; search: ReportSearchParams }) {
-  return <form className="analytics-filters" method="get">
+function ReportFilters({ report, expenseReport, tab, period, search }: { report: AnalyticsReport; expenseReport: ExpenseAnalyticsReport; tab: Tab; period: ResolvedReportPeriod; search: ReportSearchParams }) {
+  const expenses = tab === "expenses";
+  return <form className="analytics-filters" method="get" onChange={(event) => {
+    const field = event.target;
+    if (field instanceof HTMLInputElement && ["desde", "hasta"].includes(field.name)) {
+      const preset = event.currentTarget.elements.namedItem("periodo");
+      if (preset instanceof HTMLSelectElement) preset.value = "custom";
+    }
+  }}>
+    <input name="vista" type="hidden" value={tab} />
+    {(expenses ? ["categoria", "producto", "empleado", "pago"] : ["gasto_categoria", "gasto_empleado", "gasto_pago"]).map((key) => <input key={key} name={key} type="hidden" value={search[key as keyof ReportSearchParams] ?? ""} />)}
     <div className="analytics-primary-filters">
       <label className="field-label">Período<select className="field-input" defaultValue={period.preset} name="periodo">
         <option value="today">Hoy</option><option value="yesterday">Ayer</option><option value="last7">Últimos 7 días</option><option value="last30">Últimos 30 días</option><option value="thisMonth">Este mes</option><option value="previousMonth">Mes anterior</option><option value="thisYear">Este año</option><option value="custom">Personalizado</option>
@@ -133,15 +147,15 @@ function ReportFilters({ report, period, search }: { report: AnalyticsReport; pe
       <label className="analytics-compare-toggle"><input defaultChecked={period.compare} name="comparar" type="checkbox" value="1" /><span>Comparar con período anterior</span></label>
       <button className="button button-primary" type="submit"><CalendarRange size={17} /> Aplicar</button>
     </div>
-    <details className="analytics-more-filters" open={Boolean(search.categoria || search.producto || search.empleado || search.pago)}>
+    <details className="analytics-more-filters" open={expenses || Boolean(search.categoria || search.producto || search.empleado || search.pago)}>
       <summary><Filter size={16} /> Filtros avanzados</summary>
-      <div className="analytics-advanced-grid">
-        <label className="field-label">Categoría<select className="field-input" defaultValue={search.categoria ?? ""} name="categoria"><option value="">Todas</option>{report.filters.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label className="field-label">Producto<select className="field-input" defaultValue={search.producto ?? ""} name="producto"><option value="">Todos</option>{report.filters.products.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.sku}</option>)}</select></label>
-        <label className="field-label">Empleado<select className="field-input" defaultValue={search.empleado ?? ""} name="empleado"><option value="">Todos</option><option value="unassigned">Histórico / sin identificar</option>{report.filters.employees.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label className="field-label">Medio de pago<select className="field-input" defaultValue={search.pago ?? ""} name="pago"><option value="">Todos</option>{report.filters.paymentMethods.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>
+      <div className={`analytics-advanced-grid ${expenses ? "analytics-expense-filters" : ""}`} key={expenses ? "expenses" : "sales"}>
+        <label className="field-label">{expenses ? "Categoría de gasto" : "Categoría"}<select className="field-input" defaultValue={(expenses ? search.gasto_categoria : search.categoria) ?? ""} name={expenses ? "gasto_categoria" : "categoria"}><option value="">Todas</option>{(expenses ? expenseReport.filters.categories : report.filters.categories).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        {!expenses ? <label className="field-label">Producto<select className="field-input" defaultValue={search.producto ?? ""} name="producto"><option value="">Todos</option>{report.filters.products.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.sku}</option>)}</select></label> : null}
+        <label className="field-label">Empleado<select className="field-input" defaultValue={(expenses ? search.gasto_empleado : search.empleado) ?? ""} name={expenses ? "gasto_empleado" : "empleado"}><option value="">Todos</option><option value="unassigned">Histórico / sin identificar</option>{report.filters.employees.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label className="field-label">Medio de pago<select className="field-input" defaultValue={(expenses ? search.gasto_pago : search.pago) ?? ""} name={expenses ? "gasto_pago" : "pago"}><option value="">Todos</option>{(expenses ? expenseReport.filters.paymentMethods : report.filters.paymentMethods).map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>
         <button className="button button-secondary" type="submit">Aplicar filtros</button>
-        <Link className="button button-ghost" href="/app/reportes">Limpiar</Link>
+        <Link className="button button-ghost" href={expenses ? "/app/reportes?vista=expenses" : "/app/reportes"}>Limpiar</Link>
       </div>
     </details>
   </form>;
@@ -203,13 +217,13 @@ function InsightList({ report, compare }: { report: AnalyticsReport; compare: bo
 
 function TopProducts({ report }: { report: AnalyticsReport }) {
   const [metric, setMetric] = useState<"units" | "revenue">("units");
-  const [limit, setLimit] = useState<5 | 10>(5);
+  const [limit, setLimit] = useState(10);
   const [isPending, startTransition] = useTransition();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedCategory = searchParams.get("categoria") ?? "";
-  const data = [...report.topProducts].sort((a, b) => b[metric] - a[metric]).slice(0, limit).reverse();
+  const data = rankProducts(report.topProducts, metric, limit);
   const changeCategory = (categoryId: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (categoryId) params.set("categoria", categoryId);
@@ -217,9 +231,9 @@ function TopProducts({ report }: { report: AnalyticsReport }) {
     params.delete("producto");
     startTransition(() => router.replace(`${pathname}?${params.toString()}`, { scroll: false }));
   };
-  const actions = <div className="compact-controls compact-controls-ranking"><select aria-label="Categoría del ranking" disabled={isPending} value={selectedCategory} onChange={(event) => changeCategory(event.target.value)}><option value="">Todas las categorías</option>{report.filters.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><select aria-label="Métrica del ranking" value={metric} onChange={(event) => setMetric(event.target.value as "units" | "revenue")}><option value="units">Unidades</option><option value="revenue">Facturación</option></select><select aria-label="Cantidad de productos" value={limit} onChange={(event) => setLimit(Number(event.target.value) as 5 | 10)}><option value={5}>Top 5</option><option value={10}>Top 10</option></select></div>;
+  const actions = <div className="compact-controls compact-controls-ranking"><select aria-label="Categoría del ranking" disabled={isPending} value={selectedCategory} onChange={(event) => changeCategory(event.target.value)}><option value="">Todas las categorías</option>{report.filters.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><select aria-label="Métrica del ranking" value={metric} onChange={(event) => setMetric(event.target.value as "units" | "revenue")}><option value="units">Unidades</option><option value="revenue">Facturación</option></select><select aria-label="Cantidad de productos" value={limit} onChange={(event) => setLimit(rankingLimit(event.target.value))}><option value={5}>Top 5</option><option value={10}>Top 10</option><option value={20}>Top 20</option><option value={50}>Top 50</option></select></div>;
   return <ChartPanel actions={actions} eyebrow="Mix de productos" icon={PackageSearch} title="Productos más vendidos">
-    {data.length ? <div className="chart-frame chart-frame-ranking"><ResponsiveContainer height="100%" width="100%"><BarChart data={data} layout="vertical" margin={{ top: 5, right: 24, left: 8, bottom: 0 }}><CartesianGrid horizontal={false} stroke="#e7e2eb" strokeDasharray="3 4" /><XAxis axisLine={false} fontSize={11} tickFormatter={(value: number) => metric === "revenue" ? compactMoney.format(value) : number.format(value)} tickLine={false} type="number" /><YAxis axisLine={false} dataKey="name" fontSize={11} tickLine={false} type="category" width={132} tickFormatter={(value: string) => value.length > 21 ? `${value.slice(0, 20)}…` : value} /><Tooltip formatter={(value) => metric === "revenue" ? money.format(Number(value)) : `${number.format(Number(value))} unidades`} /><Bar dataKey={metric} fill="#5d506d" maxBarSize={28} name={metric === "revenue" ? "Facturación" : "Unidades"} radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer></div> : <ChartEmpty>{selectedCategory ? "No hay ventas de productos de esta categoría para el período seleccionado." : "No hay detalle de productos en este período."}</ChartEmpty>}
+    {data.length ? <div className="ranking-chart-scroll" role="region" aria-label="Ranking de productos" tabIndex={0}><div className="chart-frame chart-frame-ranking" style={{ height: Math.max(300, data.length * 38 + 45) }}><ResponsiveContainer height="100%" width="100%"><BarChart data={data} layout="vertical" margin={{ top: 5, right: 24, left: 8, bottom: 0 }}><CartesianGrid horizontal={false} stroke="#e7e2eb" strokeDasharray="3 4" /><XAxis axisLine={false} fontSize={11} tickFormatter={(value: number) => metric === "revenue" ? compactMoney.format(value) : number.format(value)} tickLine={false} type="number" /><YAxis axisLine={false} dataKey="name" fontSize={11} interval={0} tickLine={false} type="category" width={132} tickFormatter={(value: string) => value.length > 21 ? `${value.slice(0, 20)}…` : value} /><Tooltip formatter={(value) => metric === "revenue" ? money.format(Number(value)) : `${number.format(Number(value))} unidades`} /><Bar dataKey={metric} fill="#5d506d" maxBarSize={28} name={metric === "revenue" ? "Facturación" : "Unidades"} radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer></div></div> : <ChartEmpty>{selectedCategory ? "No hay ventas de productos de esta categoría para el período seleccionado." : "No hay detalle de productos en este período."}</ChartEmpty>}
   </ChartPanel>;
 }
 
@@ -230,9 +244,10 @@ function CategoryChart({ report }: { report: AnalyticsReport }) {
   </ChartPanel>;
 }
 
-function PaymentChart({ report }: { report: AnalyticsReport }) {
+function PaymentChart({ report, expensePayments }: { report: AnalyticsReport; expensePayments?: AnalyticsReport["payments"] }) {
+  if (expensePayments) report = { ...report, payments: expensePayments };
   const total = report.payments.reduce((sum, item) => sum + item.amount, 0);
-  return <ChartPanel eyebrow="Cobros" icon={CreditCard} title="Medios de pago">
+  return <ChartPanel eyebrow={expensePayments ? "Egresos" : "Cobros"} icon={CreditCard} title={expensePayments ? "Gastos por medio de pago" : "Medios de pago"}>
     {report.payments.length ? <div className="donut-layout"><div className="chart-frame chart-frame-donut"><ResponsiveContainer height="100%" width="100%"><PieChart><Pie cx="50%" cy="50%" data={report.payments} dataKey="amount" innerRadius={64} nameKey="name" outerRadius={96} paddingAngle={2}>{report.payments.map((item, index) => <Cell fill={palette[index % palette.length]} key={item.key} />)}</Pie><Tooltip formatter={(value) => money.format(Number(value))} /></PieChart></ResponsiveContainer><div className="donut-center"><strong>{report.payments.length}</strong><span>medios</span></div></div><div className="legend-list">{report.payments.map((item, index) => <div key={item.key}><span className="legend-swatch" style={{ backgroundColor: palette[index % palette.length] }} /><div><strong>{item.name}</strong><small>{money.format(item.amount)} · {item.operations} operaciones</small></div><span>{total ? percent.format(item.amount * 100 / total) : 0}%</span></div>)}</div></div> : <ChartEmpty />}
   </ChartPanel>;
 }
@@ -292,10 +307,37 @@ function SlowProducts({ report }: { report: AnalyticsReport }) {
   </ChartPanel>;
 }
 
-function ExpenseCategoryChart({ report }: { report: AnalyticsReport }) {
+function ExpenseCategoryChart({ report, categories }: { report: AnalyticsReport; categories?: AnalyticsReport["expenseCategories"] }) {
+  if (categories) report = { ...report, expenseCategories: categories };
   return <ChartPanel eyebrow="Egresos" icon={ReceiptText} title="Gastos por categoría">
     {report.expenseCategories.length ? <div className="chart-frame"><ResponsiveContainer height="100%" width="100%"><BarChart data={[...report.expenseCategories].reverse()} layout="vertical" margin={{ top: 8, right: 18, left: 8, bottom: 0 }}><CartesianGrid horizontal={false} stroke="#e7e2eb" strokeDasharray="3 4" /><XAxis axisLine={false} fontSize={11} tickFormatter={(value: number) => compactMoney.format(value)} tickLine={false} type="number" /><YAxis axisLine={false} dataKey="name" fontSize={11} tickLine={false} type="category" width={120} /><Tooltip formatter={(value) => money.format(Number(value))} /><Bar dataKey="amount" fill="#e88f82" maxBarSize={28} name="Gastos" radius={[0, 4, 4, 0]} /></BarChart></ResponsiveContainer></div> : <ChartEmpty>No hay gastos contabilizados en el período.</ChartEmpty>}
   </ChartPanel>;
+}
+
+function ExpenseReport({ expenseReport, period, report, search }: { expenseReport: ExpenseAnalyticsReport; period: ResolvedReportPeriod; report: AnalyticsReport; search: ReportSearchParams }) {
+  const [page, setPage] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const pages = Math.max(1, Math.ceil(expenseReport.details.length / limit));
+  const currentPage = Math.min(page, pages - 1);
+  const rows = expenseReport.details.slice(currentPage * limit, (currentPage + 1) * limit);
+  const metrics = [
+    { label: "Total de gastos", key: "amount", value: money.format(expenseReport.current.amount), detail: search.gasto_pago ? "Importe del medio seleccionado" : "Gastos operativos vigentes", icon: WalletCards },
+    { label: "Cantidad de gastos", key: "count", value: number.format(expenseReport.current.count), detail: "Registros del período", icon: ReceiptText },
+    { label: "Gasto promedio", key: "average", value: money.format(expenseReport.current.average), detail: "Por registro", icon: CircleDollarSign },
+    { label: "Promedio diario", key: "dailyAverage", value: money.format(expenseReport.current.dailyAverage), detail: "Por día del período", icon: CalendarRange },
+  ] as const;
+  const timeline = expenseReport.timeline.map((point) => ({ ...point, label: point.date ? formatDate(point.date) : "", previousLabel: point.previousDate ? formatDate(point.previousDate) : "" }));
+  return <div className="analytics-view">
+    <p className="analytics-scope-note">Gastos vigentes. No incluye sueldos ni adelantos de Personal.</p>
+    <section aria-label="Estadísticas de gastos" className="analytics-kpi-grid analytics-kpi-grid-compact">{metrics.map((metric) => <KpiCard compare={period.compare} current={expenseReport.current[metric.key]} detail={metric.detail} icon={metric.icon} inverse key={metric.key} label={metric.label} previous={expenseReport.previous[metric.key]} value={metric.value} />)}</section>
+    <ChartPanel eyebrow="Egresos operativos" icon={TrendingUp} title="Evolución de gastos">
+      {expenseReport.current.count || (period.compare && expenseReport.previous.count) ? <div className="chart-frame chart-frame-large"><ResponsiveContainer height="100%" width="100%"><AreaChart data={timeline} margin={{ top: 12, right: 10, left: 2, bottom: 0 }}><CartesianGrid stroke="#e7e2eb" strokeDasharray="3 4" vertical={false} /><XAxis axisLine={false} dataKey="label" fontSize={11} tickLine={false} /><YAxis axisLine={false} fontSize={11} tickFormatter={(value: number) => compactMoney.format(value)} tickLine={false} width={72} /><Tooltip formatter={(value) => money.format(Number(value))} labelFormatter={(_, payload) => payload?.[0]?.payload ? `${payload[0].payload.label}${period.compare ? ` / ${payload[0].payload.previousLabel}` : ""}` : ""} /><Area dataKey="current" fill="#f9e2db" name="Período actual" stroke="#a94d35" strokeWidth={2} type="monotone" />{period.compare ? <Line dataKey="previous" dot={false} name="Período anterior" stroke="#5d506d" strokeDasharray="5 4" strokeWidth={2} type="monotone" /> : null}<Legend /></AreaChart></ResponsiveContainer></div> : <ChartEmpty>No hay gastos para los filtros seleccionados.</ChartEmpty>}
+    </ChartPanel>
+    <div className="analytics-two-grid"><ExpenseCategoryChart categories={expenseReport.byCategory} report={report} /><PaymentChart expensePayments={expenseReport.byPayment} report={report} /></div>
+    <ChartPanel eyebrow="Movimientos" icon={ReceiptText} title="Detalle de gastos" actions={<div className="compact-controls"><select aria-label="Cantidad de gastos" value={limit} onChange={(event) => { setLimit(rankingLimit(event.target.value)); setPage(0); }}><option value={10}>10 por página</option><option value={20}>20 por página</option><option value={50}>50 por página</option></select></div>}>
+      {rows.length ? <><div className="analytics-table-wrap" data-mobile-cards><table className="analytics-table expense-report-table"><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Medios de pago</th><th>Realizado por</th><th>{search.gasto_pago ? "Importe filtrado" : "Importe"}</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td data-label="Fecha">{formatDate(row.date)}</td><td data-label="Descripción"><strong>{row.description}</strong></td><td data-label="Categoría">{row.category}</td><td data-label="Medios de pago">{row.payments.map((payment) => <small key={payment.key}>{payment.name}: {money.format(payment.amount)}</small>)}</td><td data-label="Realizado por">{row.employee}</td><td data-label={search.gasto_pago ? "Importe filtrado" : "Importe"}><strong>{money.format(row.filteredAmount)}</strong>{search.gasto_pago && row.amount !== row.filteredAmount ? <small>Total del gasto: {money.format(row.amount)}</small> : null}</td></tr>)}</tbody></table></div><nav aria-label="Paginación de gastos" className="report-pagination"><span>{expenseReport.details.length} gastos · Página {currentPage + 1} de {pages}</span><div><button aria-label="Gastos anteriores" className="icon-button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} type="button"><ChevronLeft size={18} /></button><button aria-label="Gastos siguientes" className="icon-button" disabled={currentPage >= pages - 1} onClick={() => setPage(currentPage + 1)} type="button"><ChevronRight size={18} /></button></div></nav></> : <ChartEmpty>No hay gastos para los filtros seleccionados.</ChartEmpty>}
+    </ChartPanel>
+  </div>;
 }
 
 function ProfitabilityPanel({ report }: { report: AnalyticsReport }) {
@@ -316,8 +358,15 @@ function ProfitabilityPanel({ report }: { report: AnalyticsReport }) {
   </ChartPanel>;
 }
 
-export function AnalyticsDashboard({ report, period, search }: { report: AnalyticsReport; period: ResolvedReportPeriod; search: ReportSearchParams }) {
-  const [tab, setTab] = useState<Tab>("summary");
+export function AnalyticsDashboard({ report, expenseReport, period, search }: { report: AnalyticsReport; expenseReport: ExpenseAnalyticsReport; period: ResolvedReportPeriod; search: ReportSearchParams }) {
+  const searchParams = useSearchParams();
+  const view = searchParams.get("vista");
+  const tab: Tab = view === "sales" || view === "products" || view === "expenses" || view === "profitability" ? view : "summary";
+  function setTab(tab: Tab) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("vista", tab);
+    window.history.replaceState(null, "", `/app/reportes?${params}`);
+  }
   const current = report.summary.current;
   const previous = report.summary.previous;
   const salesHref = `/app/ventas?desde=${period.from}&hasta=${period.to}`;
@@ -334,11 +383,12 @@ export function AnalyticsDashboard({ report, period, search }: { report: Analyti
     { id: "summary", label: "Resumen", icon: BarChart3 },
     { id: "sales", label: "Ventas", icon: ShoppingBag },
     { id: "products", label: "Productos y stock", icon: Boxes },
-    { id: "profitability", label: "Gastos y rentabilidad", icon: CircleDollarSign },
+    { id: "expenses", label: "Gastos", icon: ReceiptText },
+    { id: "profitability", label: "Rentabilidad", icon: CircleDollarSign },
   ];
 
   return <>
-    <ReportFilters period={period} report={report} search={search} />
+    <ReportFilters expenseReport={expenseReport} period={period} report={report} search={search} tab={tab} />
     <div className="analytics-period-note"><span>Período: {formatDate(period.from)} al {formatDate(period.to)}</span>{period.compare ? <span>Comparado con {comparisonLabel(period)}</span> : null}</div>
     <nav aria-label="Vistas de reportes" className="analytics-tabs">{tabs.map(({ id, label, icon: Icon }) => <button aria-current={tab === id ? "page" : undefined} className={tab === id ? "is-active" : ""} key={id} onClick={() => setTab(id)} type="button"><Icon size={17} />{label}</button>)}</nav>
 
@@ -353,8 +403,10 @@ export function AnalyticsDashboard({ report, period, search }: { report: Analyti
 
     {tab === "products" ? <div className="analytics-view"><InventorySummary report={report} /><div className="analytics-two-grid"><TopProducts report={report} /><CategoryChart report={report} /></div><SlowProducts report={report} /></div> : null}
 
+    {tab === "expenses" ? <ExpenseReport expenseReport={expenseReport} period={period} report={report} search={search} /> : null}
+
     {tab === "profitability" ? <div className="analytics-view"><section className="analytics-kpi-grid analytics-kpi-grid-compact">{kpis.filter((item) => ["Ventas totales", "Ganancia comprobable", "Egresos totales", "Margen bruto"].includes(item.label)).map((item) => <KpiCard compare={period.compare} key={item.label} {...item} />)}</section><div className="analytics-two-grid"><ProfitabilityPanel report={report} /><ExpenseCategoryChart report={report} /></div><ChartPanel eyebrow="Ingresos y egresos" icon={WalletCards} title="Evolución comparada"><div className="chart-frame chart-frame-large"><ResponsiveContainer height="100%" width="100%"><AreaChart data={report.timeline.map((point) => ({ ...point, label: formatDate(point.currentLabel) }))} margin={{ top: 12, right: 10, left: 2, bottom: 0 }}><CartesianGrid stroke="#e7e2eb" strokeDasharray="3 4" vertical={false} /><XAxis axisLine={false} dataKey="label" fontSize={11} tickLine={false} /><YAxis axisLine={false} fontSize={11} tickFormatter={(value: number) => compactMoney.format(value)} tickLine={false} width={72} /><Tooltip formatter={(value) => money.format(Number(value))} /><Legend /><Area dataKey="currentRevenue" fill="#d9eee8" name="Ventas" stroke="#3f9483" strokeWidth={2} type="monotone" /><Line dataKey="currentExpenses" dot={false} name="Egresos totales" stroke="#e88f82" strokeWidth={2} type="monotone" /></AreaChart></ResponsiveContainer></div></ChartPanel></div> : null}
 
-    <div className="analytics-drilldown"><Link href={salesHref}>Ver operaciones del período <ArrowRight size={16} /></Link></div>
+    <div className="analytics-drilldown"><Link href={tab === "expenses" ? `/app/gastos?mes=${period.to.slice(0, 7)}` : salesHref}>{tab === "expenses" ? "Administrar gastos" : "Ver operaciones del período"} <ArrowRight size={16} /></Link></div>
   </>;
 }
