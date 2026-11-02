@@ -81,8 +81,9 @@ export function SettlementForm({
         return amount > 0 ? [{ payment_method_id: method.id, amount: Math.round(amount * 100) / 100 }] : [];
       })
     : methodId ? [{ payment_method_id: methodId, amount: roundedTotal }] : [];
-  const allocated = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const matches = roundedTotal === 0 || (payments.length > 0 && Math.abs(allocated - roundedTotal) < 0.005);
+  const allocatedCents = payments.reduce((sum, payment) => sum + Math.round(payment.amount * 100), 0);
+  const allocated = allocatedCents / 100;
+  const matches = roundedTotal === 0 || (payments.length > 0 && allocatedCents === Math.round(roundedTotal * 100));
   return (
     <details className="row-editor payroll-payment-editor" open={autoOpen}>
     <summary className="button button-primary"><Calculator size={16} /> Liquidar sueldo</summary>
@@ -114,10 +115,10 @@ export function SettlementForm({
       {roundedTotal > 0 ? <>
         <label className="field-label sale-combined-toggle"><span>Pago combinado</span><input checked={combined} onChange={(event) => setCombined(event.target.checked)} type="checkbox" /></label>
         {combined ? <div className="sale-payment-allocation">
-          {paymentMethods.map((method) => <label className="field-label" key={method.id}>{method.name}<input className="field-input" inputMode="decimal" min="0" onChange={(event) => {
+          {paymentMethods.map((method) => <label className="field-label" key={method.id}>{method.name}<input className="field-input" inputMode="decimal" onChange={(event) => {
             const sanitized = sanitizeDecimalInput(event.target.value);
             if (sanitized !== null) setAmounts((current) => ({ ...current, [method.id]: sanitized }));
-          }} step="0.01" type="number" value={amounts[method.id] ?? ""} /></label>)}
+          }} placeholder="$ 0,00" type="text" value={amounts[method.id] ?? ""} /></label>)}
           <small className={matches ? "positive-value" : "negative-value"}>{ars.format(allocated)} / {ars.format(roundedTotal)}</small>
         </div> : <label className="field-label">Medio de egreso<select className="field-input" onChange={(event) => setMethodId(event.target.value)} value={methodId}><option disabled value="">Seleccionar</option>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.name}</option>)}</select></label>}
       </> : <p className="payroll-advance-hint">Sin saldo a pagar. No se generará otro egreso.</p>}
@@ -162,8 +163,9 @@ export function PaymentForm({
     : selectedPaymentMethod
       ? [{ payment_method_id: selectedPaymentMethod, amount: roundedTotal }]
       : [];
-  const allocatedTotal = payments.reduce((sum, payment) => sum + payment.amount, 0);
-  const allocationMatches = nothingToPay || (payments.length > 0 && Math.abs(allocatedTotal - roundedTotal) < 0.005);
+  const allocatedCents = payments.reduce((sum, payment) => sum + Math.round(payment.amount * 100), 0);
+  const allocatedTotal = allocatedCents / 100;
+  const allocationMatches = nothingToPay || (payments.length > 0 && allocatedCents === Math.round(roundedTotal * 100));
 
   return (
     <form action={action} className="entity-form payroll-payment-form">
@@ -188,15 +190,13 @@ export function PaymentForm({
                   <input
                     className="field-input"
                     inputMode="decimal"
-                    min="0"
                     onChange={(event) => {
                       const sanitized = sanitizeDecimalInput(event.target.value);
                       if (sanitized === null) return;
                       setPaymentAmounts((current) => ({ ...current, [method.id]: sanitized }));
                     }}
-                    placeholder="$ 0"
-                    step="0.01"
-                    type="number"
+                    placeholder="$ 0,00"
+                    type="text"
                     value={paymentAmounts[method.id] ?? ""}
                   />
                 </label>

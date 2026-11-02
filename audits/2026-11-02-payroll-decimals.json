@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-02",
+  "scope": "Decimal entry in combined payroll payments, management application only",
+  "cause": "Controlled number inputs can discard a trailing decimal separator before cents are entered; the existing decimal sanitizer was already accepting comma and point.",
+  "changes": [
+    "Use text inputs with decimal inputMode in both monthly settlement and pending-settlement payment forms",
+    "Preserve intermediate decimal input and normalize comma to point using the existing shared sanitizer",
+    "Compare combined allocations in integer cents and retain explicit save/confirmation actions"
+  ],
+  "verification": {
+    "unitTestFilesPassed": 29,
+    "unitTestsPassed": 138,
+    "lint": "passed",
+    "typecheck": "passed",
+    "productionBuild": "passed against isolated local services",
+    "currentDatabaseSuitesPassed": 13,
+    "browserFlowsPassed": 24,
+    "failures": 0,
+    "monthlySettlement": {
+      "viewport": "390x844",
+      "cash": 300000,
+      "transferTyped": "417663,95",
+      "transferSaved": 417663.95,
+      "netSalarySaved": 717663.95,
+      "status": "paid"
+    },
+    "pendingSettlement": {
+      "viewport": "1366x768",
+      "cash": 300000.05,
+      "transfer": 417663.90,
+      "netSalarySaved": 717663.95,
+      "status": "paid"
+    },
+    "checks": [
+      "Typing comma or point after the integer does not clear the field",
+      "Incorrect allocation cents keep payment disabled",
+      "Negative amounts, exponent notation and excessive precision remain rejected",
+      "Both payment allocations and both cash debits preserve exact cents",
+      "Reload does not duplicate payment records",
+      "No horizontal overflow in tested payroll views"
+    ],
+    "deviceTesting": "Chrome desktop and mobile emulation; not physical-device keyboard testing",
+    "initialSetupIssue": "Docker was initially stopped; started the local runtime and reran all listed checks successfully"
+  },
+  "safety": {
+    "productionFinancialWrites": 0,
+    "historicalRecordsChanged": 0,
+    "migrations": 0,
+    "backendAndPermissionsChanges": 0,
+    "newDependencies": 0,
+    "functionalTestData": "Isolated local Supabase only"
+  }
+}

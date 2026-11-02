@@ -9,6 +9,7 @@ import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 import ExcelJS from "exceljs";
 import { auditManagementLoading } from "./audit-management-loading.mjs";
+import { auditPayrollDecimals } from "./audit-payroll-decimals.mjs";
 
 const root = process.cwd();
 const workspace = path.join(os.tmpdir(), "morita-system-audit");
@@ -194,6 +195,7 @@ try {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await login(page, users.owner.email, password);
+    await auditPayrollDecimals({ page, baseUrl, artifacts, attempt, owner, organizationId: organization.id, methods });
     await auditManagementLoading({ page, context, browser, baseUrl, artifacts, attempt });
     const existingSearchFixtures = await value(owner.from("products").select("id").eq("organization_id", organization.id).like("sku", "UI-PREDICT-%"), "predictive fixtures");
     if (!existingSearchFixtures.length) await value(owner.from("products").insert(Array.from({ length: 55 }, (_, index) => ({
