@@ -1,0 +1,54 @@
+.direct-purchase-back { display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1.25rem; color: var(--plum); font-size: 0.875rem; text-decoration: none; }
+.direct-purchase-page .page-header { margin-bottom: 1.5rem; }
+.direct-purchase-form { display: grid; min-width: 0; gap: 1.5rem; }
+.direct-purchase-fields { display: grid; min-width: 0; gap: 1.5rem; border: 0; padding: 0; }
+.direct-purchase-meta { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr); gap: 1rem; }
+.direct-purchase-search { min-width: 0; }
+.direct-purchase-results { display: grid; overflow: hidden; margin-top: 0.5rem; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+.direct-purchase-results > button { display: flex; width: 100%; min-width: 0; min-height: 3.75rem; align-items: center; justify-content: space-between; gap: 1rem; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 0.75rem 1rem; text-align: left; }
+.direct-purchase-results > button:last-child { border-bottom: 0; }
+.direct-purchase-results > button > span:first-child { min-width: 0; }
+.direct-purchase-results strong, .direct-purchase-line h3 { overflow-wrap: anywhere; font-size: 0.95rem; }
+.direct-purchase-results small, .direct-purchase-line-head small { display: block; margin-top: 0.25rem; color: var(--ink-muted); font-size: 0.75rem; overflow-wrap: anywhere; }
+.direct-purchase-results > button:disabled { color: var(--ink-muted); background: var(--surface-soft); }
+.direct-purchase-search-price { display: flex; flex: 0 0 auto; align-items: center; gap: 1rem; color: var(--plum-dark); font-size: 0.875rem; font-weight: 650; }
+.direct-purchase-search-price svg { flex-shrink: 0; }
+.direct-purchase-detail { min-width: 0; }
+.direct-purchase-empty { min-height: 8rem; margin-top: 1rem; }
+.direct-purchase-lines { display: grid; gap: 1rem; margin-top: 1rem; }
+.direct-purchase-line { min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 1rem; }
+.direct-purchase-line-head { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.direct-purchase-line-head > div { min-width: 0; }
+.direct-purchase-line-head > button { flex-shrink: 0; }
+.direct-purchase-line-fields { display: grid; min-width: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; gap: 1rem; }
+.direct-purchase-line-fields .field-label { min-width: 0; }
+.direct-purchase-line-fields .field-input { width: 100%; min-width: 0; }
+.direct-purchase-line-total { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem 1rem; margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.75rem; color: var(--ink-muted); font-size: 0.8rem; }
+.direct-purchase-line-total strong { color: var(--ink); }
+.direct-purchase-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.direct-purchase-footer > div { display: grid; gap: 0.25rem; }
+.direct-purchase-footer small { color: var(--ink-muted); }
+.direct-purchase-footer strong { font-size: 1.5rem; }
+.direct-purchase-success { display: grid; justify-items: start; gap: 1rem; border-top: 1px solid var(--line); padding-top: 1.5rem; }
+.direct-purchase-success h2 { font-size: 1.25rem; }
+.direct-purchase-success p { margin-top: 0.5rem; color: var(--ink-muted); }
+.direct-purchase-success dl { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.direct-purchase-success dt { margin-bottom: 0.3rem; color: var(--ink-muted); font-size: 0.8rem; }
+.direct-purchase-success dd { font-weight: 700; }
+.direct-purchase-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+@media (hover: hover) and (pointer: fine) {
+  .direct-purchase-results > button:not(:disabled):hover { background: var(--surface-soft); }
+}
+@media (max-width: 1100px) {
+  .direct-purchase-line-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .direct-purchase-meta { grid-template-columns: minmax(0, 1fr); }
+  .direct-purchase-search-price { gap: 0.5rem; font-size: 0.8rem; }
+  .direct-purchase-results > button { gap: 0.6rem; padding-inline: 0.75rem; }
+  .direct-purchase-line { padding: 0.8rem; }
+  .direct-purchase-line-fields { gap: 1rem 0.75rem; }
+  .direct-purchase-line-fields .field-label { font-size: 0.8rem; }
+  .direct-purchase-line .icon-button { min-width: 2.75rem; min-height: 2.75rem; }
+  .direct-purchase-footer > button, .direct-purchase-actions > .button { width: 100%; }
+}

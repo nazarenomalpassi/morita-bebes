@@ -1,0 +1,67 @@
+{
+  "date": "2026-11-10",
+  "scope": "Direct entry of already received supplier orders in the management application",
+  "route": "/app/compras/cargar",
+  "workflow": "Manual entry from a supplier document: supplier, product search, received quantities, optional price edits, explicit stock confirmation",
+  "changes": [
+    "Add Cargar orden alongside the existing purchase creation workflow",
+    "Search active products by name, SKU or barcode, including products without stock",
+    "Show received quantity, unit cost, retail price and optional wholesale price together",
+    "Accept Argentine monetary formatting and decimal quantities without numeric input spinners",
+    "Reuse existing order, receipt and inventory movement logic in one transaction",
+    "Prevent duplicate stock entries on concurrent or repeated submissions",
+    "Keep unedited catalog prices intact and reject conflicting concurrent price edits",
+    "Preserve the draft after errors and offer an explicit reload of current prices",
+    "Revalidate product, purchase, sales and storefront views after a successful receipt"
+  ],
+  "database": {
+    "migration": "20261110154743_direct_purchase_entry.sql",
+    "migrationApplied": true,
+    "newPrivateTable": "private.direct_purchase_entries",
+    "newRpc": "public.load_received_purchase_order",
+    "security": "SECURITY INVOKER, active organization membership, existing RLS, authenticated execution only",
+    "idempotency": "Client request UUID, transaction advisory lock and immutable request payload ledger",
+    "priceConflict": "HTTP 409 business conflict; never SQLSTATE 40001 transaction retry",
+    "productionCatalogCacheWarning": "CLI catalog caching timed out after the migration completed; migration history, function privileges and production integrity were verified independently"
+  },
+  "verification": {
+    "lint": "passed",
+    "typecheck": "passed",
+    "unitTestFilesPassed": 30,
+    "unitTestsPassed": 148,
+    "productionBuild": "passed against isolated local Supabase",
+    "databaseSuitesPassed": 14,
+    "browserFlowsPassed": 29,
+    "pageChecksPassed": 140,
+    "failures": 0,
+    "viewports": ["375x812", "390x844", "430x932", "768x1024", "1024x768", "1366x768", "1920x1080"],
+    "deviceTesting": "Desktop Chrome and responsive emulation, not physical devices",
+    "checks": [
+      "Owner and staff can record a received purchase",
+      "Decimal quantity 2.5 and cost 10500.95 are saved correctly",
+      "Edited retail prices appear in sales and the public storefront",
+      "Conflicting price changes roll back without losing the draft",
+      "Concurrent retries return the same order and increment stock once",
+      "The existing create, send and receive purchase flow remains functional",
+      "No horizontal overflow or serious/critical accessibility violations in tested views",
+      "Existing sales, combined expenses, payroll, scanner and e-commerce regressions pass"
+    ],
+    "finalServerAdjustment": "Reran the production build after batching current-price reads for long orders; repeated the full database, browser flow and responsive page regression against that build",
+    "testHarnessFixes": [
+      "Select canonical fixtures explicitly rather than relying on catalog ordering or the first product page",
+      "Wait for the authenticated storefront header before navigating after login, and observe cart quantities before checkout"
+    ]
+  },
+  "safety": {
+    "productionTablesComparedBeforeAndAfterMigration": 23,
+    "productionTablesWithChangedExistingData": 0,
+    "productionBusinessTestWrites": 0,
+    "historicalRecordsChanged": 0,
+    "roleChanges": 0,
+    "newDependencies": 0,
+    "automaticCashDebit": false,
+    "pdfOrPhotoOcr": false,
+    "functionalTestData": "Disposable local Supabase only",
+    "existingPurchaseWorkflow": "Preserved"
+  }
+}

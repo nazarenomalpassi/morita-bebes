@@ -7,6 +7,8 @@ export type PurchaseProduct = {
   minStock: number;
   targetStock: number | null;
   costPrice: number;
+  retailPrice: number;
+  wholesalePrice: number | null;
   unit: string;
   needsRestock: boolean;
   supplierId: string | null;
@@ -43,3 +45,5 @@ export type PurchaseOrder = {
   supplierName: string;
   items: PurchaseOrderItem[];
 };
+
+export type PurchaseOrderFilter = "open" | "all" | PurchaseOrder["status"];

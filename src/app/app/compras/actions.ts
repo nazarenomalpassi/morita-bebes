@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireActionContext } from "@/lib/actions/context";
+import { dateInputValueInArgentina } from "@/lib/date";
+import { directPurchaseItemsSchema } from "@/lib/purchases/direct-entry";
+import type { PurchaseProduct } from "@/components/purchases/purchase-types";
 import {
   friendlyDatabaseError,
   optionalText,
@@ -11,7 +14,73 @@ import {
   type ActionState,
 } from "@/lib/actions/form-state";
 
-export type PurchaseActionState = ActionState & { orderId?: string; receiptId?: string };
+export type PurchaseActionState = ActionState & {
+  orderId?: string;
+  receiptId?: string;
+  currentPrices?: Pick<PurchaseProduct, "id" | "costPrice" | "retailPrice" | "wholesalePrice" | "currentStock">[];
+};
+
+export async function loadReceivedPurchaseOrderAction(
+  _previousState: PurchaseActionState,
+  formData: FormData,
+): Promise<PurchaseActionState> {
+  let rawItems: unknown;
+  try { rawItems = JSON.parse(textField(formData, "items")); } catch { return { error: "El detalle de la carga no es válido." }; }
+  const parsed = z.object({
+    items: directPurchaseItemsSchema,
+    supplierId: z.uuid(),
+    requestId: z.uuid(),
+    documentDate: z.iso.date().refine((value) => value <= dateInputValueInArgentina()),
+    reference: z.string().trim().max(80),
+    notes: z.string().trim().max(500),
+  }).safeParse({
+    items: rawItems,
+    supplierId: textField(formData, "supplier_id"),
+    requestId: textField(formData, "request_id"),
+    documentDate: textField(formData, "document_date"),
+    reference: textField(formData, "reference"),
+    notes: textField(formData, "notes"),
+  });
+  if (!parsed.success) return { error: "Revisá proveedor, fecha, cantidades y precios. La carga debe tener entre 1 y 500 productos sin repetir." };
+  const { organization, supabase } = await requireActionContext();
+  const { data, error } = await supabase.rpc("load_received_purchase_order", {
+    p_organization_id: organization.id,
+    p_supplier_id: parsed.data.supplierId,
+    p_request_id: parsed.data.requestId,
+    p_document_date: parsed.data.documentDate,
+    p_items: parsed.data.items,
+    p_reference: parsed.data.reference || undefined,
+    p_notes: parsed.data.notes || undefined,
+  });
+  if (error?.message.includes("price changed while editing")) {
+    const currentPrices: NonNullable<PurchaseActionState["currentPrices"]> = [];
+    const productIds = parsed.data.items.map((item) => item.product_id);
+    // Keep long orders below URL limits when reading the latest catalog prices.
+    for (let start = 0; start < productIds.length; start += 100) {
+      const { data: latest, error: latestError } = await supabase.from("products").select("id, cost_price, retail_price, wholesale_price, current_stock")
+        .eq("organization_id", organization.id).in("id", productIds.slice(start, start + 100));
+      if (latestError) return { error: "Cambió un precio y no pudimos consultar sus valores actuales. No se guardó ningún cambio; conservamos tu carga para volver a intentar." };
+      currentPrices.push(...(latest ?? []).map((product) => ({ id: product.id, costPrice: Number(product.cost_price), retailPrice: Number(product.retail_price), wholesalePrice: product.wholesale_price === null ? null : Number(product.wholesale_price), currentStock: Number(product.current_stock) })));
+    }
+    return {
+      error: `Cambió un precio de ${error.details || "uno de los productos"} mientras cargabas la orden. Revisá sus precios actuales antes de confirmar. No se guardó ningún cambio.`,
+      currentPrices,
+    };
+  }
+  if (error?.message.includes("already completed with different data")) return { error: "Esta carga ya se guardó. Actualizá la vista para verla antes de iniciar otra; no se duplicó el ingreso." };
+  if (error?.message.includes("product is missing or inactive")) return { error: "Un producto de la carga fue dado de baja o ya no está disponible. Revisá el detalle antes de guardar." };
+  if (error) return { error: friendlyDatabaseError(error) };
+  for (const item of parsed.data.items) {
+    revalidatePath(`/app/productos/${item.product_id}`);
+    revalidatePath(`/app/productos/${item.product_id}/editar`);
+  }
+  revalidatePath("/app");
+  revalidatePath("/app/compras");
+  revalidatePath("/app/productos");
+  revalidatePath("/app/ventas");
+  revalidatePath("/tienda", "layout");
+  return { message: "Orden recibida. El stock y los precios modificados quedaron actualizados.", orderId: data };
+}
 
 const orderItemSchema = z.object({
   product_id: z.uuid(),

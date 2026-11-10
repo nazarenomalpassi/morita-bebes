@@ -31,6 +31,7 @@ import { ars, dateTime, localDate, quantity } from "@/lib/format";
 import { OrderReceiptForm } from "./order-receipt-form";
 import type {
   PurchaseOrder,
+  PurchaseOrderFilter,
   PurchaseProduct,
   PurchaseSupplier,
 } from "./purchase-types";
@@ -79,6 +80,8 @@ type PurchaseManagementProps = {
   orders: PurchaseOrder[];
   canCancel: boolean;
   canManage: boolean;
+  initialOrderFilter?: PurchaseOrderFilter;
+  selectedOrderId?: string;
 };
 
 function PurchaseEditor({
@@ -87,6 +90,8 @@ function PurchaseEditor({
   orders,
   canCancel,
   canManage,
+  initialOrderFilter = "open",
+  selectedOrderId,
   state,
   formAction,
   pending,
@@ -99,7 +104,7 @@ function PurchaseEditor({
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [lines, setLines] = useState<Record<string, OrderLine>>({});
-  const [orderFilter, setOrderFilter] = useState<"open" | "all" | PurchaseOrder["status"]>("open");
+  const [orderFilter, setOrderFilter] = useState<PurchaseOrderFilter>(initialOrderFilter);
 
   const restockProducts = useMemo(
     () => products.filter((product) => product.needsRestock),
@@ -323,6 +328,8 @@ function PurchaseEditor({
               <span className="eyebrow">Pedido a proveedor</span>
               <h2>Nueva orden de compra</h2>
             </div>
+            <div className="flex flex-wrap gap-2">
+            <Link className="button button-secondary gap-2" href="/app/compras/cargar"><PackagePlus size={17} /> Cargar orden</Link>
             <button
               aria-expanded={showCreator}
               className="button button-primary gap-2"
@@ -331,6 +338,7 @@ function PurchaseEditor({
             >
               <Plus size={17} /> {showCreator ? "Cerrar" : "Crear orden"}
             </button>
+            </div>
           </div>
 
           {showCreator && (
@@ -459,7 +467,7 @@ function PurchaseEditor({
             const received = order.items.reduce((sum, item) => sum + item.quantityReceived, 0);
             const progress = ordered > 0 ? Math.min(100, (received / ordered) * 100) : 0;
             return (
-              <details className="rounded-[8px] border border-[var(--line)] bg-[var(--surface)]" key={order.id}>
+              <details className="rounded-[8px] border border-[var(--line)] bg-[var(--surface)]" key={order.id} open={order.id === selectedOrderId}>
                 <summary className="grid min-h-24 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 md:grid-cols-[minmax(13rem,1fr)_minmax(11rem,0.7fr)_minmax(9rem,0.55fr)_auto]">
                   <span className="min-w-0"><strong className="block truncate">{order.reference ?? `Orden #${order.id.slice(0, 8)}`}</strong><small className="mt-1 block truncate text-[var(--ink-muted)]">{order.supplierName} · {order.orderedAt ? localDate(order.orderedAt) : "Sin fecha"}</small></span>
                   <span className="hidden min-w-0 md:block"><small className="block text-[0.7rem] font-semibold text-[var(--ink-muted)]">Recepción</small><span className="mt-1 block h-1.5 overflow-hidden rounded bg-[#ece9ef]"><span className="block h-full bg-[var(--plum)]" style={{ width: `${progress}%` }} /></span><small className="mt-1 block text-[0.7rem] text-[var(--ink-muted)]">{quantity.format(received)} de {quantity.format(ordered)}</small></span>

@@ -10,6 +10,7 @@ import AxeBuilder from "@axe-core/playwright";
 import ExcelJS from "exceljs";
 import { auditManagementLoading } from "./audit-management-loading.mjs";
 import { auditPayrollDecimals } from "./audit-payroll-decimals.mjs";
+import { auditDirectPurchases } from "./audit-direct-purchases.mjs";
 
 const root = process.cwd();
 const workspace = path.join(os.tmpdir(), "morita-system-audit");
@@ -39,6 +40,7 @@ async function value(result, label) {
 }
 
 async function attempt(name, callback, target = report.flows) {
+  if (target === report.flows && process.env.AUDIT_FLOW_CASE && !name.includes(process.env.AUDIT_FLOW_CASE)) return;
   try {
     await callback();
     target.push({ name, passed: true });
@@ -107,6 +109,7 @@ async function inspect(page, route, role, width, height) {
 async function auditDatabase() {
   if (process.env.AUDIT_SKIP_DB === "1") return;
   const currentSuites = new Set(["verify_backdated_expenses_after_closure.sql", "verify_card_payment_surcharges.sql", "verify_daily_cash_closures.sql", "verify_ecommerce_storefront.sql", "verify_employee_permissions.sql", "verify_expense_combined_payments.sql", "verify_functional_audit.sql", "verify_invoker_security.sql", "verify_manual_sale_surcharge.sql", "verify_management_report_rankings.sql", "verify_personnel_payroll_cash_workflow.sql", "verify_safe_sale_submission_and_cancellation.sql", "verify_staff_product_update.sql"]);
+  currentSuites.add("verify_direct_purchase_entry.sql");
   for (const file of (await readdir(path.join(root, "supabase/tests"))).filter((file) => file.startsWith("verify_") && file.endsWith(".sql") && (currentSuites.has(file) || process.env.AUDIT_INCLUDE_LEGACY === "1")).sort()) {
     await attempt(file, async () => {
       const sql = await readFile(path.join(root, "supabase/tests", file), "utf8");
@@ -152,7 +155,7 @@ try {
     const methods = await value(owner.from("payment_methods").select("*").eq("organization_id", organization.id).eq("is_active", true), "methods");
     const suppliers = await value(owner.from("suppliers").select().eq("organization_id", organization.id), "suppliers");
     const supplier = suppliers[0] ?? await value(owner.from("suppliers").insert({ organization_id: organization.id, business_name: "Proveedor Auditoria", phone: "3511234567" }).select().single(), "supplier fixture");
-    let products = await value(owner.from("products").select().eq("organization_id", organization.id).order("name"), "products");
+    let products = await value(owner.from("products").select().eq("organization_id", organization.id).in("sku", ["07791234567890", "AUDIT-ZERO"]).order("name"), "products");
     if (!products.length) {
       products = await value(owner.from("products").insert([
         { organization_id: organization.id, name: "Panales Auditoria", sku: "07791234567890", barcode: "07791234567890", cost_price: 5000, retail_price: 10000, wholesale_price: 9000, unit: "unidad", default_supplier_id: supplier.id },
@@ -195,6 +198,8 @@ try {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await login(page, users.owner.email, password);
+    await auditDirectPurchases({ browser, context, baseUrl, artifacts, attempt, owner, organizationId: organization.id, supplierId: supplier.id, staffEmail: users.staff.email, password });
+    if (process.env.AUDIT_DIRECT_ONLY !== "1") {
     await auditPayrollDecimals({ page, baseUrl, artifacts, attempt, owner, organizationId: organization.id, methods });
     await auditManagementLoading({ page, context, browser, baseUrl, artifacts, attempt });
     const existingSearchFixtures = await value(owner.from("products").select("id").eq("organization_id", organization.id).like("sku", "UI-PREDICT-%"), "predictive fixtures");
@@ -305,14 +310,14 @@ try {
       assert((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 1);
       await page.screenshot({ path: path.join(artifacts, "management-ranking-50-mobile.png"), fullPage: true });
     });
-    const routes = ["/app", "/app/productos", "/app/productos/nuevo", `/app/productos/${products[0].id}`, `/app/productos/${products[0].id}/editar`, "/app/proveedores", "/app/proveedores/nuevo", `/app/proveedores/${supplier.id}/editar`, "/app/categorias", "/app/ventas", "/app/compras", "/app/clientes", "/app/gastos", "/app/caja", "/app/comisionistas", "/app/personal", "/app/reportes", "/app/pedidos-web", "/app/mayoristas", "/app/tienda", "/app/tienda/productos", "/app/usuarios", "/app/auditoria", "/app/configuracion", "/app/importar"];
+    const routes = ["/app", "/app/productos", "/app/productos/nuevo", `/app/productos/${products[0].id}`, `/app/productos/${products[0].id}/editar`, "/app/proveedores", "/app/proveedores/nuevo", `/app/proveedores/${supplier.id}/editar`, "/app/categorias", "/app/ventas", "/app/compras", "/app/compras/cargar", "/app/clientes", "/app/gastos", "/app/caja", "/app/comisionistas", "/app/personal", "/app/reportes", "/app/pedidos-web", "/app/mayoristas", "/app/tienda", "/app/tienda/productos", "/app/usuarios", "/app/auditoria", "/app/configuracion", "/app/importar"];
     if (process.env.AUDIT_SKIP_PAGES !== "1") {
       for (const [width, height] of [[1366, 768], [390, 844]]) for (const route of routes) await inspect(page, route, "owner", width, height);
       for (const [width, height] of [[375, 812], [430, 932], [768, 1024], [1024, 768], [1920, 1080]]) for (const route of ["/app/productos", "/app/ventas", "/app/gastos", "/app/caja", "/app/personal", "/app/pedidos-web"]) await inspect(page, route, "owner", width, height);
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await attempt("Product quick price edit persisted", async () => {
-      await page.goto(`${baseUrl}/app/productos`);
+      await page.goto(`${baseUrl}/app/productos?q=${encodeURIComponent(products[0].sku)}`);
       await page.getByRole("button", { name: "Editar precios", exact: true }).first().click();
       const targetPrice = Number(products[0].retail_price) === 12000 ? 12500 : 12000;
       await page.getByRole("dialog").locator('[name="retail_price"]').fill(String(targetPrice));
@@ -474,16 +479,25 @@ try {
       } }), "create local buyer");
       const buyerContext = await browser.newContext({ serviceWorkers: "block", reducedMotion: "reduce", viewport: { width: 390, height: 844 } });
       const buyer = await buyerContext.newPage();
+      flowPage = buyer;
       await buyerContext.route("https://wa.me/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<h1>WhatsApp intercepted for local testing</h1>" }));
-      await buyer.goto(`${baseUrl}/tienda/ingresar?next=/tienda/productos`);
+      const catalogDestination = `/tienda/productos?buscar=${encodeURIComponent(products[0].name)}`;
+      await buyer.goto(`${baseUrl}/tienda/ingresar?next=${encodeURIComponent(catalogDestination)}`);
       await buyer.locator('[name="email"]').fill(email);
       await buyer.locator('[name="password"]').fill(password);
       await buyer.getByRole("button", { name: "Ingresar", exact: true }).click();
-      await buyer.waitForURL("**/tienda/productos");
-      const add = buyer.getByRole("button", { name: "Agregar Panales Auditoria al carrito", exact: true });
-      await add.click(); await add.click();
+      await buyer.waitForURL((url) => url.pathname === "/tienda/productos");
+      await buyer.getByRole("link", { name: "Mi cuenta, Buyer Audit", exact: true }).waitFor();
+      await buyer.locator(".store-product-card.is-visible").first().waitFor();
+      const add = buyer.getByRole("button", { name: `Agregar ${products[0].name} al carrito`, exact: true });
+      await add.click();
+      await buyer.getByRole("link", { name: "Carrito con 1 producto", exact: true }).waitFor();
+      await add.click();
+      const cartLink = buyer.getByRole("link", { name: "Carrito con 2 productos", exact: true });
+      await cartLink.waitFor();
       const before = await value(owner.from("products").select("current_stock").eq("id", products[0].id).single(), "stock before web order");
-      await buyer.goto(`${baseUrl}/tienda/carrito`);
+      await cartLink.click();
+      await buyer.waitForURL("**/tienda/carrito");
       const note = `Local UI web order ${randomUUID()}`;
       await buyer.locator('[name="notes"]').fill(note);
       await buyer.getByRole("button", { name: "Generar pedido por WhatsApp" }).click();
@@ -491,6 +505,7 @@ try {
       const order = await value(owner.from("web_orders").select("id,order_number,sale_id,total").eq("notes", note).single(), "web order saved");
       assert.equal(order.sale_id, null);
       assert.equal((await value(owner.from("products").select("current_stock").eq("id", products[0].id).single(), "unconfirmed stock")).current_stock, before.current_stock);
+      flowPage = page;
       await page.goto(`${baseUrl}/app/pedidos-web?estado=all`);
       const card = page.locator(".web-order-admin-card").filter({ hasText: order.order_number });
       await card.locator("summary").click();
@@ -531,6 +546,7 @@ try {
       await pwaContext.close();
     });
     await attempt("No uncaught browser exceptions", () => assert.deepEqual(pageErrors, []));
+    }
     await writeFile(path.join(artifacts, "server.log"), serverOutput);
     }
   }

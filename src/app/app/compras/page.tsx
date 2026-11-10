@@ -1,38 +1,27 @@
-import { Download, PackageSearch, ShoppingCart, Truck } from "lucide-react";
+import { Download, PackagePlus, PackageSearch, ShoppingCart, Truck } from "lucide-react";
+import Link from "next/link";
 
 import { PurchaseManagement } from "@/components/purchases/purchase-management";
 import type {
   PurchaseOrder,
-  PurchaseProduct,
+  PurchaseOrderFilter,
 } from "@/components/purchases/purchase-types";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
-import { fetchAllRows } from "@/lib/data/fetch-all-rows";
+import { getPurchaseCatalog } from "@/lib/purchases/catalog";
 import { ars } from "@/lib/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function PurchasesPage() {
+export default async function PurchasesPage({ searchParams }: { searchParams: Promise<{ estado?: string; orden?: string }> }) {
+  const params = await searchParams;
+  const initialOrderFilter: PurchaseOrderFilter = ["open", "all", "draft", "sent", "partial", "received", "cancelled"].includes(params.estado ?? "")
+    ? params.estado as PurchaseOrderFilter : "open";
   const supabase = await createServerSupabaseClient();
   const organization = await getCurrentOrganization(supabase);
   if (!organization) return null;
-  const [productRows, suppliers, ordersResult] = await Promise.all([
-    fetchAllRows((from, to) => supabase
-      .from("products")
-      .select("id, name, sku, barcode, current_stock, min_stock, target_stock, cost_price, unit, needs_restock, default_supplier_id, suppliers(business_name)")
-      .eq("organization_id", organization.id)
-      .eq("is_active", true)
-      .order("name")
-      .order("id")
-      .range(from, to)),
-    fetchAllRows((from, to) => supabase
-      .from("suppliers")
-      .select("id, business_name")
-      .eq("organization_id", organization.id)
-      .eq("is_active", true)
-      .order("business_name")
-      .order("id")
-      .range(from, to)),
+  const [{ products, suppliers }, ordersResult] = await Promise.all([
+    getPurchaseCatalog(supabase, organization.id),
     supabase
       .from("purchase_orders")
       .select("id, reference, status, ordered_at, expected_at, received_at, estimated_total, notes, created_at, supplier_id, suppliers(business_name), purchase_order_items(id, product_id, quantity_ordered, quantity_received, unit_cost, products(name, sku, unit))")
@@ -45,20 +34,6 @@ export default async function PurchasesPage() {
     throw new Error("No se pudo cargar la información de compras.");
   }
 
-  const products: PurchaseProduct[] = productRows.map((product) => ({
-    id: product.id,
-    name: product.name,
-    sku: product.sku,
-    barcode: product.barcode,
-    currentStock: Number(product.current_stock),
-    minStock: Number(product.min_stock),
-    targetStock: product.target_stock === null ? null : Number(product.target_stock),
-    costPrice: Number(product.cost_price),
-    unit: product.unit,
-    needsRestock: Boolean(product.needs_restock),
-    supplierId: product.default_supplier_id,
-    supplierName: product.suppliers?.business_name ?? null,
-  }));
   const orders: PurchaseOrder[] = (ordersResult.data ?? []).map((order) => ({
     id: order.id,
     reference: order.reference,
@@ -98,9 +73,12 @@ export default async function PurchasesPage() {
             Prepará pedidos desde los faltantes y registrá cada entrega para actualizar el stock.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <Link className="button button-primary gap-2" href="/app/compras/cargar"><PackagePlus size={17} /> Cargar orden</Link>
         <a className="button button-secondary gap-2" href="/api/compras/faltantes">
           <Download size={17} /> Exportar faltantes
         </a>
+        </div>
       </header>
 
       <section className="stats-grid">
@@ -119,9 +97,11 @@ export default async function PurchasesPage() {
       <PurchaseManagement
         canCancel={organization.role !== "staff"}
         canManage={canManage}
+        initialOrderFilter={initialOrderFilter}
+        selectedOrderId={params.orden}
         orders={orders}
         products={products}
-        suppliers={suppliers.map((supplier) => ({ id: supplier.id, name: supplier.business_name }))}
+        suppliers={suppliers}
       />
     </div>
   );
