@@ -70,7 +70,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
           <span className="eyebrow">Abastecimiento y proveedores</span>
           <h1 className="page-title mt-2">Compras y reposición</h1>
           <p className="page-lead">
-            Prepará pedidos desde los faltantes y registrá cada entrega para actualizar el stock.
+            Registrá ingresos de mercadería o prepará pedidos a proveedores desde los faltantes.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

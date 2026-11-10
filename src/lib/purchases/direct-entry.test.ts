@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { directPurchaseItemsSchema, filterPurchaseProducts, parseDirectPurchaseFields } from "./direct-entry";
+import { directPurchaseItemsSchema, entryIdentifierConflict, entryNewProductSchema, filterPurchaseProducts, inventoryEntryItemsSchema, parseDirectPurchaseFields } from "./direct-entry";
 
 const item = { product_id: "22222222-2222-4222-8222-222222222222", quantity: 2.5, unit_cost: 12500.95, retail_price: 18000, wholesale_price: null, original_cost_price: 10000, original_retail_price: 16000, original_wholesale_price: null };
 
@@ -41,5 +41,32 @@ describe("Incoming purchase search", () => {
     expect(filterPurchaseProducts(products, "INT-02")).toEqual([products[1]]);
     expect(filterPurchaseProducts(products, "inexistente")).toEqual([]);
     expect(filterPurchaseProducts(products, "")).toEqual([]);
+  });
+});
+
+describe("Standalone inventory entries", () => {
+  const newProduct = { name: "Pañal nuevo", sku: " 07791234567890\t", barcode: "\u200B07791234567890", unit: "unidad" };
+  it("mixes existing and new products and preserves zero-prefixed text identifiers", () => {
+    const result = inventoryEntryItemsSchema.safeParse([item, { ...item, product_id: "33333333-3333-4333-8333-333333333333", new_product: newProduct }]);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data[1].new_product?.sku).toBe("07791234567890");
+      expect(result.data[1].new_product?.barcode).toBe("07791234567890");
+      expect(inventoryEntryItemsSchema.safeParse(result.data).success).toBe(true);
+    }
+  });
+  it("rejects invalid new products and duplicate cross-field codes in a batch", () => {
+    expect(entryNewProductSchema.safeParse({ ...newProduct, sku: "7.79E+12" }).success).toBe(false);
+    expect(entryNewProductSchema.safeParse({ ...newProduct, sku: 779123 }).success).toBe(false);
+    expect(entryNewProductSchema.safeParse({ ...newProduct, name: "", unit: "otro" }).success).toBe(false);
+    expect(inventoryEntryItemsSchema.safeParse([
+      { ...item, new_product: newProduct },
+      { ...item, product_id: "33333333-3333-4333-8333-333333333333", new_product: { ...newProduct, sku: "DIFFERENT" } },
+    ]).success).toBe(false);
+  });
+  it("detects codes already present as SKU or barcode without requiring a supplier", () => {
+    const fields = { ...newProduct, unit: "unidad" as const };
+    expect(entryIdentifierConflict(fields, [{ name: "Existente", sku: "OTRO", barcode: "07791234567890" }])).toBe("Existente");
+    expect(entryIdentifierConflict({ ...fields, sku: "NUEVO", barcode: "" }, [])).toBeNull();
   });
 });

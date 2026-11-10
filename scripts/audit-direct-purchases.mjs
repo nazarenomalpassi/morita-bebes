@@ -24,7 +24,6 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
   assert(["localhost", "127.0.0.1"].includes(new URL(owner.supabaseUrl).hostname));
   const storageState = await context.storageState();
   const runCase = (name, callback) => process.env.AUDIT_DIRECT_CASE && !name.includes(process.env.AUDIT_DIRECT_CASE) ? Promise.resolve() : attempt(name, callback);
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
   async function fixture() {
     const token = randomUUID().slice(0, 8);
     return value(owner.from("products").insert({ organization_id: organizationId, name: `Panal entrada ${token}`, sku: `DIRECT-${token}`, barcode: `0${Date.now()}${token}`, cost_price: 9000, retail_price: 14000, wholesale_price: 12000, default_supplier_id: supplierId, is_published: true }).select().single());
@@ -35,17 +34,15 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
     await page.getByRole("button", { name: `Agregar ${product.name}`, exact: true }).click();
     return page.locator(`[data-product-id="${product.id}"]`);
   }
-  async function saved(product, order, expectedStock, expectedCost, expectedRetail, expectedWholesale) {
+  async function saved(product, expectedStock, expectedCost, expectedRetail, expectedWholesale) {
     const row = await value(owner.from("products").select("current_stock,cost_price,retail_price,wholesale_price").eq("id", product.id).single());
     assert.equal(Number(row.current_stock), expectedStock);
     assert.equal(Number(row.cost_price), expectedCost);
     assert.equal(Number(row.retail_price), expectedRetail);
     assert.equal(row.wholesale_price === null ? null : Number(row.wholesale_price), expectedWholesale);
-    const items = await value(owner.from("purchase_order_items").select("quantity_ordered,quantity_received").eq("purchase_order_id", order.id));
-    assert(items.every((item) => item.quantity_ordered === item.quantity_received));
   }
 
-  for (const staff of [false, true]) await runCase(staff ? "Staff mobile direct receipt edits prices and increments stock" : "Direct receipt saves decimal quantities and propagates catalog prices", async () => {
+  for (const staff of [false, true]) await runCase(staff ? "Staff mobile standalone entry creates products and increments stock" : "Standalone entry saves quantities and propagates catalog prices", async () => {
     const testContext = await browser.newContext({ storageState: staff ? undefined : storageState, serviceWorkers: "block", reducedMotion: "reduce", viewport: { width: staff ? 390 : 1366, height: staff ? 844 : 768 } });
     try {
       const page = await testContext.newPage();
@@ -59,12 +56,14 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
       const product = await fixture();
       const second = staff ? null : await fixture();
       const reference = `REM-UI-${randomUUID().slice(0, 8)}`;
+      const ordersBefore = (await value(owner.from("purchase_orders").select("id"))).length;
+      const receiptsBefore = (await value(owner.from("purchase_receipts").select("id"))).length;
       await page.goto(`${baseUrl}/app/compras`);
       await page.getByRole("link", { name: "Cargar orden", exact: true }).first().click();
       await page.locator("h1").getByText("Cargar orden", { exact: true }).waitFor();
       const form = page.locator(".direct-purchase-form");
-      await form.locator('select[name="supplier_id"]').selectOption(supplierId);
-      await form.locator('[name="reference"]').fill(reference);
+      assert.equal(await form.locator('[name="supplier_id"], [name="reference"], [name="document_date"]').count(), 0, "No supplier or document inputs belong to a stock entry");
+      await form.locator('[name="notes"]').fill(reference);
       const line = await add(page, product);
       const quantity = line.getByRole("textbox", { name: `Cantidad recibida de ${product.name}`, exact: true });
       await quantity.fill("0");
@@ -85,21 +84,43 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
         const secondLine = await add(page, second);
         await secondLine.getByRole("textbox", { name: `Cantidad recibida de ${second.name}`, exact: true }).fill("3");
       }
+      await form.getByRole("button", { name: "Cargar nuevo producto", exact: true }).click();
+      const newLine = form.locator('[data-new-product="true"]').last();
+      const newId = await newLine.getAttribute("data-product-id");
+      const newName = `Nuevo ingreso ${randomUUID().slice(0, 8)}`;
+      const newSku = `000-${randomUUID().slice(0, 8)}`;
+      await newLine.getByRole("textbox", { name: "Nombre del nuevo producto", exact: true }).fill(newName);
+      await newLine.getByRole("textbox", { name: "SKU / código interno", exact: true }).fill(product.sku);
+      assert(await submit.isDisabled(), "A new product cannot reuse an existing identifier");
+      await newLine.getByRole("textbox", { name: "SKU / código interno", exact: true }).fill(newSku);
+      await newLine.getByRole("textbox", { name: "Código de barras", exact: true }).fill(newSku);
+      await newLine.getByRole("textbox", { name: `Cantidad recibida de ${newName}`, exact: true }).fill("2");
+      await newLine.getByRole("textbox", { name: `Costo unitario ($) de ${newName}`, exact: true }).fill("2.500,50");
+      await newLine.getByRole("textbox", { name: `Precio minorista ($) de ${newName}`, exact: true }).fill("4.500");
+      assert.equal((await value(owner.from("products").select("id").eq("sku", newSku))).length, 0, "New products are not created before stock confirmation");
       for (const [width, height] of staff ? [[375, 812], [390, 844], [430, 932], [768, 1024]] : [[1024, 768], [1366, 768], [1920, 1080]]) {
         await page.setViewportSize({ width, height });
+        await page.evaluate(() => window.scrollTo(0, 0));
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "Direct entry must not overflow horizontally");
         await page.screenshot({ path: path.join(artifacts, `direct-purchase-${staff ? "staff" : "owner"}-${width}.png`), fullPage: true });
       }
       const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
       assert.deepEqual(axe.violations.filter((issue) => ["critical", "serious"].includes(issue.impact)).map((issue) => issue.id), []);
       await submit.click();
-      await page.getByRole("heading", { name: "Orden cargada y recibida", exact: true }).waitFor();
-      const order = await waitOrder(owner, reference, "received");
-      await saved(product, order, staff ? 4 : 2.5, staff ? 1234.56 : 10500.95, staff ? 2345.67 : 15000.50, staff ? 2000 : 13000);
-      assert.equal(Number(order.estimated_total), staff ? 4938.24 : 53252.38);
-      await page.getByRole("link", { name: "Ver orden recibida", exact: true }).click();
-      await page.getByText(reference, { exact: true }).waitFor();
-      assert.equal(await page.locator('select').filter({ has: page.locator('option:checked[value="received"]') }).count(), 1);
+      await page.getByRole("heading", { name: "Ingreso de mercadería registrado", exact: true }).waitFor();
+      await saved(product, staff ? 4 : 2.5, staff ? 1234.56 : 10500.95, staff ? 2345.67 : 15000.50, staff ? 2000 : 13000);
+      await saved({ id: newId }, 2, 2500.5, 4500, null);
+      const created = await value(owner.from("products").select("sku,barcode,default_supplier_id,is_published").eq("id", newId).single());
+      assert.equal(created.sku, newSku);
+      assert.equal(created.barcode, newSku);
+      assert.equal(created.default_supplier_id, null);
+      assert.equal(created.is_published, false);
+      assert.equal((await value(owner.from("purchase_orders").select("id"))).length, ordersBefore);
+      assert.equal((await value(owner.from("purchase_receipts").select("id"))).length, receiptsBefore);
+      assert.equal((await value(owner.from("inventory_movements").select("id").like("notes", `%${reference}`))).length, staff ? 2 : 3);
+      await page.getByRole("link", { name: "Ver inventario", exact: true }).click();
+      await page.goto(`${baseUrl}/app/productos?q=${encodeURIComponent(newSku)}`);
+      await page.getByText(newName, { exact: true }).first().waitFor();
       if (!staff) {
         await page.goto(`${baseUrl}/app/ventas`);
         const picker = page.locator(".sale-product-list");
@@ -120,8 +141,7 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
       const reference = `CONFLICT-${randomUUID().slice(0, 8)}`;
       await page.goto(`${baseUrl}/app/compras/cargar`);
       const form = page.locator(".direct-purchase-form");
-      await form.locator('select[name="supplier_id"]').selectOption(supplierId);
-      await form.locator('[name="reference"]').fill(reference);
+      await form.locator('[name="notes"]').fill(reference);
       const line = await add(page, product);
       const received = line.getByRole("textbox", { name: `Cantidad recibida de ${product.name}`, exact: true });
       const retail = line.getByRole("textbox", { name: `Precio minorista ($) de ${product.name}`, exact: true });
@@ -139,9 +159,8 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
       assert.equal(await retail.inputValue(), "15.000");
       await retail.fill("16000");
       await form.getByRole("button", { name: "Guardar e ingresar stock", exact: true }).click();
-      await page.getByRole("heading", { name: "Orden cargada y recibida", exact: true }).waitFor();
-      const order = await waitOrder(owner, reference, "received");
-      await saved(product, order, 2, 9000, 16000, 12000);
+      await page.getByRole("heading", { name: "Ingreso de mercadería registrado", exact: true }).waitFor();
+      await saved(product, 2, 9000, 16000, 12000);
     } finally {
       const page = testContext.pages()[0];
       if (page && await page.locator(".direct-purchase-form").count()) {
@@ -160,14 +179,17 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
     const product = await fixture();
     const requestId = randomUUID();
     const payload = {
-      p_organization_id: organizationId, p_supplier_id: supplierId, p_request_id: requestId, p_document_date: today,
-      p_reference: `RETRY-${requestId}`, p_items: [{ product_id: product.id, quantity: 6, unit_cost: 9000, retail_price: 14000, wholesale_price: 12000, original_cost_price: 9000, original_retail_price: 14000, original_wholesale_price: 12000 }],
+      p_organization_id: organizationId, p_request_id: requestId,
+      p_notes: `RETRY-${requestId}`, p_items: [{ product_id: product.id, quantity: 6, unit_cost: 9000, retail_price: 14000, wholesale_price: 12000, original_cost_price: 9000, original_retail_price: 14000, original_wholesale_price: 12000 }],
     };
-    const [first, second] = await Promise.all([value(owner.rpc("load_received_purchase_order", payload)), value(owner.rpc("load_received_purchase_order", payload))]);
+    const newId = randomUUID();
+    payload.p_items.push({ ...payload.p_items[0], product_id: newId, new_product: { name: "Nuevo ingreso concurrente", sku: `000-${newId}`, barcode: null, unit: "unidad" } });
+    const [first, second] = await Promise.all([value(owner.rpc("load_inventory_entry", payload)), value(owner.rpc("load_inventory_entry", payload))]);
     assert.equal(first, second);
     assert.equal((await value(owner.from("products").select("current_stock").eq("id", product.id).single())).current_stock, 6);
-    const ledger = await value(owner.from("inventory_movements").select("id").eq("reference_type", "purchase_receipt").eq("reference_id", requestId));
-    assert.equal(ledger.length, 1);
+    assert.equal((await value(owner.from("products").select("current_stock").eq("id", newId).single())).current_stock, 6);
+    const ledger = await value(owner.from("inventory_movements").select("id").like("notes", `%RETRY-${requestId}`));
+    assert.equal(ledger.length, 2);
   });
 
   await runCase("Existing purchase creation and later receipt still work", async () => {
@@ -193,7 +215,26 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
       await page.getByRole("spinbutton", { name: `Cantidad recibida de ${product.name}`, exact: true }).fill("2");
       await page.getByRole("button", { name: "Confirmar ingreso", exact: true }).click();
       await waitOrder(owner, reference, "received");
-      await saved(product, order, 2, 9000, 14000, 12000);
+      await saved(product, 2, 9000, 14000, 12000);
     } finally { await testContext.close(); }
+  });
+
+  await runCase("Concurrent new-product entries reject cross-field duplicate identifiers", async () => {
+    const token = randomUUID().slice(0, 8);
+    const sku = `NEW-SKU-${token}`;
+    const barcode = `NEW-BAR-${token}`;
+    const makePayload = (reverse) => ({
+      p_organization_id: organizationId, p_request_id: randomUUID(), p_items: [{
+        product_id: randomUUID(), quantity: 2, unit_cost: 10, retail_price: 20, wholesale_price: null,
+        original_cost_price: 0, original_retail_price: 0, original_wholesale_price: null,
+        new_product: { name: `Concurrent new ${token}`, sku: reverse ? barcode : sku, barcode: reverse ? sku : barcode, unit: "unidad" },
+      }],
+    });
+    const results = await Promise.all([owner.rpc("load_inventory_entry", makePayload(false)), owner.rpc("load_inventory_entry", makePayload(true))]);
+    assert.equal(results.filter((result) => !result.error).length, 1);
+    assert.equal(results.filter((result) => result.error?.code === "23505").length, 1);
+    const products = await value(owner.from("products").select("id,current_stock").in("sku", [sku, barcode]));
+    assert.equal(products.length, 1);
+    assert.equal(Number(products[0].current_stock), 2);
   });
 }

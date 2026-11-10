@@ -1,0 +1,61 @@
+{
+  "date": "2026-11-10",
+  "scope": "Cargar orden now records a standalone inventory entry rather than a supplier purchase",
+  "route": "/app/compras/cargar",
+  "changes": [
+    "Remove supplier, reference, invoice and document date requirements",
+    "Select existing active products by name, SKU or barcode, including zero stock",
+    "Show received quantity, editable unit cost, retail price and optional wholesale price",
+    "Add Cargar nuevo producto with name, text SKU, optional text barcode and unit",
+    "Keep new products entirely in the draft until the entry is confirmed",
+    "Create new products, update edited prices and increment stock in one database transaction",
+    "Do not create purchase orders, purchase receipts, suppliers, expenses or financial movements",
+    "Preserve the pre-existing create, send and receive supplier purchase workflow"
+  ],
+  "database": {
+    "migration": "20261110181501_standalone_inventory_entries.sql",
+    "migrationApplied": true,
+    "newPrivateTable": "private.inventory_entries",
+    "newRpc": "public.load_inventory_entry",
+    "security": "SECURITY INVOKER, active organization membership, existing product and inventory RLS, authenticated execution only",
+    "idempotency": "Request UUID, transaction advisory lock and immutable payload/movement ledger",
+    "newProductConcurrency": "Serialize new-product batches per organization before checking SKU and barcode collisions",
+    "stockWrites": "Reuse public.adjust_inventory; never replace current stock directly",
+    "newProductDefaults": "Active, zero stock before movement, no supplier, standard product defaults, not automatically published in the storefront",
+    "priceConflicts": "HTTP 409, transaction rollback and explicit current-price reload without losing new product drafts",
+    "legacyPurchaseHistory": "Existing orders, receipts and their original RPC remain unchanged",
+    "catalogCacheWarning": "CLI migration catalog caching timed out after successful application; history, function privileges, anonymous API denial and data integrity were checked independently"
+  },
+  "verification": {
+    "lint": "passed",
+    "typecheck": "passed",
+    "productionBuild": "passed against isolated local Supabase",
+    "unitTestFilesPassed": 30,
+    "unitTestsPassed": 151,
+    "databaseSuitesPassed": 15,
+    "fullBrowserRegression": { "flowsPassed": 29, "pageChecksPassed": 140, "failures": 0 },
+    "finalFocusedRegression": { "flowsPassed": 6, "databaseSuitesPassed": 15, "failures": 0 },
+    "uniqueBrowserFlowsPassed": 30,
+    "viewports": ["375x812", "390x844", "430x932", "768x1024", "1024x768", "1366x768", "1920x1080"],
+    "deviceTesting": "Desktop Chrome and responsive emulation, not physical devices",
+    "checks": [
+      "Owner and staff save mixed existing/new entries without supplier inputs",
+      "New products do not exist before confirmation and appear in inventory afterward",
+      "Argentine decimal quantities and prices persist correctly",
+      "Zero-prefixed identifiers remain text; duplicate and scientific identifiers are rejected",
+      "A late failure rolls back new products, price edits and stock movements together",
+      "Simultaneous retries create each new product and stock ingress once",
+      "Simultaneous independent entries reject cross-field SKU/barcode duplicates",
+      "Sales and storefront display the updated prices of existing published products",
+      "No horizontal overflow or serious/critical accessibility violations in tested views"
+    ]
+  },
+  "safety": {
+    "productionTablesComparedBeforeAndAfterMigration": 23,
+    "productionTablesWithChangedExistingData": 0,
+    "productionBusinessTestWrites": 0,
+    "roleChanges": 0,
+    "newDependencies": 0,
+    "functionalTestData": "Disposable local Supabase only"
+  }
+}

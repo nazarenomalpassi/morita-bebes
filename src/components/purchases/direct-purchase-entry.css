@@ -2,7 +2,13 @@
 .direct-purchase-page .page-header { margin-bottom: 1.5rem; }
 .direct-purchase-form { display: grid; min-width: 0; gap: 1.5rem; }
 .direct-purchase-fields { display: grid; min-width: 0; gap: 1.5rem; border: 0; padding: 0; }
-.direct-purchase-meta { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr); gap: 1rem; }
+.direct-purchase-search-tools { display: flex; align-items: stretch; gap: 0.75rem; }
+.direct-purchase-search-tools .search-field { flex: 1; min-width: 0; }
+.direct-purchase-search-tools > button { flex-shrink: 0; }
+.direct-purchase-new-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-block: 1rem; }
+.direct-purchase-new-fields .field-label { min-width: 0; }
+.direct-purchase-code-warning { grid-column: 1 / -1; }
+.direct-purchase-new-tag { display: inline-flex; }
 .direct-purchase-search { min-width: 0; }
 .direct-purchase-results { display: grid; overflow: hidden; margin-top: 0.5rem; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
 .direct-purchase-results > button { display: flex; width: 100%; min-width: 0; min-height: 3.75rem; align-items: center; justify-content: space-between; gap: 1rem; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 0.75rem 1rem; text-align: left; }
@@ -43,7 +49,8 @@
   .direct-purchase-line-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
-  .direct-purchase-meta { grid-template-columns: minmax(0, 1fr); }
+  .direct-purchase-search-tools { flex-direction: column; }
+  .direct-purchase-new-fields { grid-template-columns: minmax(0, 1fr); }
   .direct-purchase-search-price { gap: 0.5rem; font-size: 0.8rem; }
   .direct-purchase-results > button { gap: 0.6rem; padding-inline: 0.75rem; }
   .direct-purchase-line { padding: 0.8rem; }

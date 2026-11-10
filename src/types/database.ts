@@ -3056,6 +3056,15 @@ export type Database = {
         }
         Returns: string
       }
+      load_inventory_entry: {
+        Args: {
+          p_organization_id: string
+          p_request_id: string
+          p_items: Json
+          p_notes?: string
+        }
+        Returns: string
+      }
       load_received_purchase_order: {
         Args: {
           p_organization_id: string

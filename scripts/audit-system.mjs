@@ -110,6 +110,7 @@ async function auditDatabase() {
   if (process.env.AUDIT_SKIP_DB === "1") return;
   const currentSuites = new Set(["verify_backdated_expenses_after_closure.sql", "verify_card_payment_surcharges.sql", "verify_daily_cash_closures.sql", "verify_ecommerce_storefront.sql", "verify_employee_permissions.sql", "verify_expense_combined_payments.sql", "verify_functional_audit.sql", "verify_invoker_security.sql", "verify_manual_sale_surcharge.sql", "verify_management_report_rankings.sql", "verify_personnel_payroll_cash_workflow.sql", "verify_safe_sale_submission_and_cancellation.sql", "verify_staff_product_update.sql"]);
   currentSuites.add("verify_direct_purchase_entry.sql");
+  currentSuites.add("verify_standalone_inventory_entries.sql");
   for (const file of (await readdir(path.join(root, "supabase/tests"))).filter((file) => file.startsWith("verify_") && file.endsWith(".sql") && (currentSuites.has(file) || process.env.AUDIT_INCLUDE_LEGACY === "1")).sort()) {
     await attempt(file, async () => {
       const sql = await readFile(path.join(root, "supabase/tests", file), "utf8");
