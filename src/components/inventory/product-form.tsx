@@ -1,9 +1,11 @@
 "use client";
 
 import { Save } from "lucide-react";
+import { useState } from "react";
 import { usePreservedActionState } from "@/lib/ui/use-preserved-action-state";
 
-import { formatPriceInput } from "@/lib/inventory/prices";
+import { formatPriceInput, parsePriceInput } from "@/lib/inventory/prices";
+import { inventoryAttributeLabels, readInventoryAttributes } from "@/lib/inventory/attributes";
 
 import type { InventoryActionState } from "./action-state";
 import { initialInventoryActionState } from "./action-state";
@@ -15,6 +17,7 @@ type Option = { id: string; is_active?: boolean; name: string };
 type SupplierOption = { business_name: string; id: string; is_active?: boolean };
 
 export type ProductFormValue = {
+  inventory_attributes?: unknown;
   barcode: string | null;
   brand_id: string | null;
   category_id: string | null;
@@ -78,12 +81,20 @@ export function ProductForm({
   product?: ProductFormValue;
   suppliers: SupplierOption[];
 }) {
-  const { state, formAction, onReset } = usePreservedActionState(action, initialInventoryActionState);
+  const [originalPrices, setOriginalPrices] = useState(() => product ? { cost: product.cost_price, retail: product.retail_price, wholesale: product.wholesale_price } : null);
+  const { state, formAction, onReset } = usePreservedActionState(async (previous: InventoryActionState, data: FormData) => {
+    const result = await action(previous, data);
+    if (result.status === "success") {
+      setOriginalPrices(result.prices ? { cost: result.prices.costPrice, retail: result.prices.retailPrice, wholesale: result.prices.wholesalePrice } : { cost: parsePriceInput(String(data.get("cost_price")))!, retail: parsePriceInput(String(data.get("retail_price")))!, wholesale: parsePriceInput(String(data.get("wholesale_price") ?? "")) });
+    }
+    return result;
+  }, initialInventoryActionState);
   const editing = Boolean(product);
 
   return (
     <form action={formAction} onReset={onReset} className="mt-8 space-y-9">
       {editing ? <input name="original_stock" type="hidden" value={product!.current_stock} /> : null}
+      {originalPrices ? <input name="original_prices" type="hidden" value={JSON.stringify(originalPrices)} /> : null}
       <ActionFeedback state={state} />
 
       <section aria-labelledby="product-basic-heading">
@@ -174,6 +185,12 @@ export function ProductForm({
             </select>
           </Field>
         </div>
+      </section>
+
+      <section aria-labelledby="product-attributes-heading">
+        <div className="border-b border-[var(--line)] pb-3"><h2 className="text-base font-bold" id="product-attributes-heading">Características opcionales</h2></div>
+        <FieldError name="inventory_attributes" state={state} />
+        <div className="mt-4 grid gap-4 md:grid-cols-3">{Object.entries(inventoryAttributeLabels).map(([key, label]) => <Field key={key} label={label} name={`attribute_${key}`} state={state}><input className="field-input" defaultValue={readInventoryAttributes(product?.inventory_attributes)[key as keyof typeof inventoryAttributeLabels] ?? ""} maxLength={80} name={`attribute_${key}`} /></Field>)}</div>
       </section>
 
       <section aria-labelledby="product-price-heading">

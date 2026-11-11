@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { updateProductPricesAction } from "@/app/app/productos/actions";
 import { ars } from "@/lib/format";
 import { formatPriceInput, parsePriceInput, type ProductPrices } from "@/lib/inventory/prices";
+import { productPriceWarnings } from "@/lib/inventory/batch-prices";
 
 type PriceFields = { cost: string; retail: string; wholesale: string };
 type PriceFieldName = keyof PriceFields;
@@ -19,6 +20,9 @@ function inputValues(prices: ProductPrices): PriceFields {
     retail: formatPriceInput(prices.retailPrice),
     wholesale: formatPriceInput(prices.wholesalePrice),
   };
+}
+function samePrices(left: ProductPrices, right: ProductPrices) {
+  return left.costPrice === right.costPrice && left.retailPrice === right.retailPrice && left.wholesalePrice === right.wholesalePrice;
 }
 
 export function ProductPriceCells({
@@ -32,25 +36,33 @@ export function ProductPriceCells({
   initialPrices: ProductPrices;
   status: React.ReactNode;
 }) {
-  const [prices, setPrices] = useState(initialPrices);
+  const [localPrices, setLocalPrices] = useState<{ base: ProductPrices; value: ProductPrices } | null>(null);
+  const prices = localPrices && samePrices(localPrices.base, initialPrices) ? localPrices.value : initialPrices;
+  const [editorPrices, setEditorPrices] = useState(initialPrices);
   const [fields, setFields] = useState(() => inputValues(initialPrices));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const [currentPrices, setCurrentPrices] = useState<ProductPrices | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
   const mounted = useSyncExternalStore(subscribe, () => true, () => false);
   const [pending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const nextPrices = { costPrice: parsePriceInput(fields.cost), retailPrice: parsePriceInput(fields.retail), wholesalePrice: parsePriceInput(fields.wholesale) };
+  const warnings = nextPrices.costPrice !== null && nextPrices.retailPrice !== null ? productPriceWarnings(editorPrices, nextPrices as ProductPrices) : [];
 
   const changed = (fields.wholesale.trim() !== "" && parsePriceInput(fields.wholesale) === null)
-    || parsePriceInput(fields.cost) !== prices.costPrice
-    || parsePriceInput(fields.retail) !== prices.retailPrice
-    || parsePriceInput(fields.wholesale) !== prices.wholesalePrice;
+    || parsePriceInput(fields.cost) !== editorPrices.costPrice
+    || parsePriceInput(fields.retail) !== editorPrices.retailPrice
+    || parsePriceInput(fields.wholesale) !== editorPrices.wholesalePrice;
 
   function openEditor() {
+    setEditorPrices(prices);
     setFields(inputValues(prices));
     setErrors({});
     setMessage("");
+    setCurrentPrices(null); setAcknowledged(false);
     dialogRef.current?.showModal();
     firstInputRef.current?.focus();
   }
@@ -62,6 +74,7 @@ export function ProductPriceCells({
   }
 
   function updateField(name: PriceFieldName, value: string) {
+    setAcknowledged(false);
     setFields((previous) => ({ ...previous, [name]: value }));
     setErrors((previous) => ({ ...previous, [name === "cost" ? "cost_price" : name === "retail" ? "retail_price" : "wholesale_price"]: "" }));
     setMessage("");
@@ -81,7 +94,8 @@ export function ProductPriceCells({
       try {
         const result = await updateProductPricesAction(productId, formData);
         if (result.status === "success" && result.prices) {
-          setPrices(result.prices);
+          setLocalPrices({ base: initialPrices, value: result.prices });
+          setEditorPrices(result.prices);
           setFields(inputValues(result.prices));
           setErrors({});
           setSavedMessage(result.message);
@@ -90,6 +104,7 @@ export function ProductPriceCells({
         }
         setErrors(result.fieldErrors ?? {});
         setMessage(result.message);
+        setCurrentPrices(result.currentPrices ?? null);
       } catch {
         setMessage("No se pudieron actualizar los precios. Intentá nuevamente.");
       }
@@ -115,6 +130,9 @@ export function ProductPriceCells({
         <button aria-label="Cerrar" className="icon-button" disabled={pending} onClick={closeEditor} title="Cerrar" type="button"><X size={18} /></button>
       </div>
       <form noValidate onKeyDown={(event) => { if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault(); }} onSubmit={submitPrices}>
+        <input name="original_cost_price" type="hidden" value={String(editorPrices.costPrice)} />
+        <input name="original_retail_price" type="hidden" value={String(editorPrices.retailPrice)} />
+        <input name="original_wholesale_price" type="hidden" value={editorPrices.wholesalePrice === null ? "" : String(editorPrices.wholesalePrice)} />
         {([
           ["cost", "cost_price", "Precio de costo"],
           ["retail", "retail_price", "Precio minorista"],
@@ -142,10 +160,15 @@ export function ProductPriceCells({
             {errors[name] ? <small className="product-price-error">{errors[name]}</small> : null}
           </label>
         ))}
+        {warnings.length ? <div className="form-info" role="status">{warnings.map((warning) => <p key={warning}>{warning}</p>)}<label className="check-field"><input checked={acknowledged} name="acknowledge_price_warning" onChange={(event) => setAcknowledged(event.target.checked)} type="checkbox" /> Revisé los importes y quiero guardarlos</label></div> : null}
         {message ? <p className="form-error" role="alert">{message}</p> : null}
+        {currentPrices ? <button className="button button-secondary" onClick={() => {
+          if (!window.confirm("Se reemplazarán los importes escritos por los precios actuales. ¿Continuar?")) return;
+          setLocalPrices({ base: initialPrices, value: currentPrices }); setEditorPrices(currentPrices); setFields(inputValues(currentPrices)); setCurrentPrices(null); setMessage(""); setAcknowledged(false);
+        }} type="button">Cargar precios actuales</button> : null}
         <div className="product-price-dialog-actions">
           <button className="button button-secondary" disabled={pending} onClick={closeEditor} type="button">Cancelar</button>
-          <button className="button button-primary" disabled={pending || !changed} type="submit"><Save size={17} /> {pending ? "Guardando..." : "Guardar precios"}</button>
+          <button className="button button-primary" disabled={pending || !changed || Boolean(warnings.length && !acknowledged)} type="submit"><Save size={17} /> {pending ? "Guardando..." : "Guardar precios"}</button>
         </div>
       </form>
     </dialog>

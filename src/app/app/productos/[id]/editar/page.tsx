@@ -16,7 +16,7 @@ export default async function EditProductPage({ params }: PageProps<"/app/produc
   const organization = await getCurrentOrganization(supabase);
   if (!organization) redirect("/app");
   const [product, categories, brands, suppliers] = await Promise.all([
-    supabase.from("products").select("name, sku, barcode, description, commercial_description, category_id, brand_id, default_supplier_id, cost_price, retail_price, wholesale_price, wholesale_min_quantity, current_stock, min_stock, target_stock, unit, image_path, is_published, is_featured, hide_when_out_of_stock, store_slug, seo_title, seo_description").eq("id", id).eq("organization_id", organization.id).maybeSingle(),
+    supabase.from("products").select("name, sku, barcode, description, commercial_description, category_id, brand_id, default_supplier_id, cost_price, retail_price, wholesale_price, wholesale_min_quantity, current_stock, min_stock, target_stock, unit, image_path, is_published, is_featured, hide_when_out_of_stock, store_slug, seo_title, seo_description, inventory_attributes").eq("id", id).eq("organization_id", organization.id).maybeSingle(),
     supabase.from("categories").select("id, name, is_active").eq("organization_id", organization.id).order("name"),
     supabase.from("brands").select("id, name, is_active").eq("organization_id", organization.id).order("name"),
     supabase.from("suppliers").select("id, business_name, is_active").eq("organization_id", organization.id).order("business_name"),

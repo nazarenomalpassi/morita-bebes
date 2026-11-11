@@ -13,6 +13,7 @@ import type { ExpenseRecord, ExpenseCategory } from "@/lib/expenses/types";
 import { readExpensePayments, validateExpensePayments } from "@/lib/expenses/payments";
 import { ars } from "@/lib/format";
 import { sanitizeDecimalInput } from "@/lib/sales/decimal-input";
+import { CompletePaymentButton } from "@/components/forms/complete-payment-button";
 
 type CategoryOption = { id: string; name: string; is_payroll_advance: boolean };
 type Option = { id: string; name: string; is_active: boolean };
@@ -145,13 +146,15 @@ export function ExpenseForm({
             <strong>Distribución del gasto</strong>
             <span className={matches ? "positive-value" : "negative-value"}>{ars.format(allocated)} / {ars.format(total)}</span>
           </div>
-          {methods.map((method) => <label className="field-label" key={method.id}>
+          {methods.map((method) => <div className="sale-payment-allocation-row" key={method.id}><label className="field-label">
             {method.name}{!method.is_active ? " (inactivo)" : ""}
             <input className="field-input" inputMode="decimal" onChange={(event) => {
               const next = sanitizeDecimalInput(event.target.value);
               if (next !== null) setAmounts((current) => ({ ...current, [method.id]: next }));
             }} placeholder="$ 0" type="text" value={amounts[method.id] ?? ""} />
-          </label>)}
+          </label>
+            <CompletePaymentButton total={total} amounts={amounts} methodId={method.id} methodName={method.name} disabled={pending || !method.is_active} onChange={(value) => setAmounts((current) => ({ ...current, [method.id]: value }))} />
+          </div>)}
           <small aria-live="polite" className="form-span-2">{matches ? "Importe completo distribuido." : remaining >= 0 ? `Falta distribuir ${ars.format(remaining)}.` : `La distribución supera el gasto por ${ars.format(-remaining)}.`}</small>
         </div> : null}
         <input name="payroll_employee_id" type="hidden" value="" />

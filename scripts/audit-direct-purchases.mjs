@@ -59,8 +59,8 @@ export async function auditDirectPurchases({ browser, context, baseUrl, artifact
       const ordersBefore = (await value(owner.from("purchase_orders").select("id"))).length;
       const receiptsBefore = (await value(owner.from("purchase_receipts").select("id"))).length;
       await page.goto(`${baseUrl}/app/compras`);
-      await page.getByRole("link", { name: "Cargar orden", exact: true }).first().click();
-      await page.locator("h1").getByText("Cargar orden", { exact: true }).waitFor();
+      await page.getByRole("link", { name: "Ingresar mercadería", exact: true }).first().click();
+      await page.locator("h1").getByText("Ingresar mercadería", { exact: true }).waitFor();
       const form = page.locator(".direct-purchase-form");
       assert.equal(await form.locator('[name="supplier_id"], [name="reference"], [name="document_date"]').count(), 0, "No supplier or document inputs belong to a stock entry");
       await form.locator('[name="notes"]').fill(reference);

@@ -2,10 +2,12 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { SensitiveBalancesProvider } from "@/components/finance/sensitive-balances";
+import { ManagementDraftProvider } from "@/components/forms/management-draft-provider";
 import { ManagementLoadingScreen } from "@/components/shell/management-loading";
 import { ManagementShell } from "@/components/shell/management-shell";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import "@/components/forms/management-workflows.css";
 
 export default function ManagementLayout({
   children,
@@ -28,7 +30,7 @@ async function AuthenticatedManagementLayout({ children }: Readonly<{ children: 
   const userLabel = typeof claims.email === "string" ? claims.email : "Usuario del sistema";
 
   return (
-    <SensitiveBalancesProvider>
+    <ManagementDraftProvider scope={`${organization?.id ?? "none"}:${claims.sub}`}><SensitiveBalancesProvider>
       <ManagementShell
         organizationName={organization?.name ?? "Sin configurar"}
         role={organization?.role}
@@ -37,6 +39,6 @@ async function AuthenticatedManagementLayout({ children }: Readonly<{ children: 
       >
         {children}
       </ManagementShell>
-    </SensitiveBalancesProvider>
+    </SensitiveBalancesProvider></ManagementDraftProvider>
   );
 }

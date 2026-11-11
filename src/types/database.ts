@@ -1627,8 +1627,64 @@ export type Database = {
           },
         ]
       }
+      product_price_changes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          new_prices: Json
+          organization_id: string
+          previous_prices: Json
+          product_id: string | null
+          product_name: string
+          reason: string
+          sku: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_prices: Json
+          organization_id: string
+          previous_prices: Json
+          product_id?: string | null
+          product_name: string
+          reason: string
+          sku: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_prices?: Json
+          organization_id?: string
+          previous_prices?: Json
+          product_id?: string | null
+          product_name?: string
+          reason?: string
+          sku?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_price_changes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_changes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
+          inventory_attributes: Json
+          management_search_text: string | null
           barcode: string | null
           brand_id: string | null
           category_id: string | null
@@ -1661,6 +1717,8 @@ export type Database = {
           wholesale_price: number | null
         }
         Insert: {
+          inventory_attributes?: Json
+          management_search_text?: string | null
           barcode?: string | null
           brand_id?: string | null
           category_id?: string | null
@@ -1693,6 +1751,8 @@ export type Database = {
           wholesale_price?: number | null
         }
         Update: {
+          inventory_attributes?: Json
+          management_search_text?: string | null
           barcode?: string | null
           brand_id?: string | null
           category_id?: string | null
@@ -2669,6 +2729,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      classify_management_products: {
+        Args: {
+          p_brand_id?: string
+          p_category_id?: string
+          p_organization_id: string
+          p_product_ids: string[]
+          p_set_brand?: boolean
+          p_set_category?: boolean
+        }
+        Returns: number
+      }
+      update_management_prices: {
+        Args: { p_changes: Json; p_organization_id: string; p_reason?: string }
+        Returns: number
+      }
       add_organization_member_by_email: {
         Args: {
           p_email: string

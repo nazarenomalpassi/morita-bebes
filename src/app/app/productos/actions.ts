@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import type { InventoryActionState } from "@/components/inventory/action-state";
 import {
@@ -22,10 +23,13 @@ import {
 } from "@/components/inventory/server-utils";
 import { parsePriceInput, type ProductPrices } from "@/lib/inventory/prices";
 import type { Database } from "@/types/database";
+import { inventoryAttributeLabels, inventoryAttributesSchema, type InventoryAttributes } from "@/lib/inventory/attributes";
+import { priceChangesSchema, productPriceWarnings } from "@/lib/inventory/batch-prices";
 
-export type PriceUpdateResult = InventoryActionState & { prices?: ProductPrices };
+export type PriceUpdateResult = InventoryActionState & { prices?: ProductPrices; currentPrices?: ProductPrices };
 
 type ProductInput = {
+  inventory_attributes: InventoryAttributes;
   barcode: string | null;
   brand_id: string | null;
   category_id: string | null;
@@ -80,6 +84,11 @@ function parseProduct(formData: FormData): {
   const minStock = numberValue(formData, "min_stock");
   const targetStock = optionalNumberValue(formData, "target_stock");
   const errors: Record<string, string> = {};
+  const attributes = inventoryAttributesSchema.safeParse(Object.fromEntries(Object.keys(inventoryAttributeLabels).flatMap((key) => {
+    const value = textValue(formData, `attribute_${key}`);
+    return value ? [[key, value]] : [];
+  })));
+  if (!attributes.success) errors.inventory_attributes = "Cada atributo admite hasta 80 caracteres.";
 
   if (name.length < 2 || name.length > 180) {
     errors.name = "Ingresá un nombre de entre 2 y 180 caracteres.";
@@ -136,6 +145,7 @@ function parseProduct(formData: FormData): {
 
   return {
     data: {
+      inventory_attributes: attributes.success ? attributes.data : {},
       barcode,
       brand_id: brandId,
       category_id: categoryId,
@@ -335,13 +345,23 @@ export async function updateProductAction(
     return { status: "error", message: "Revisá los datos del producto.", fieldErrors: productErrors };
   }
 
+  let originalPrices: { cost: number; retail: number; wholesale: number | null } | undefined;
+  if (formData.get("original_prices")) {
+    try {
+      const parsedOriginals = z.object({ cost: z.number().nonnegative(), retail: z.number().nonnegative(), wholesale: z.number().nonnegative().nullable() }).strict().safeParse(JSON.parse(textValue(formData, "original_prices")));
+      if (!parsedOriginals.success) return { status: "error", message: "Volvé a abrir el producto para revisar los precios actuales." };
+      originalPrices = parsedOriginals.data;
+    } catch { return { status: "error", message: "El estado original del producto no es válido." }; }
+  }
   const { data, error } = await context.supabase.rpc("update_product_details", {
     p_organization_id: context.organization.id,
     p_product_id: productId,
-    p_values: parsed.data,
+    p_values: { ...parsed.data, ...(originalPrices ? { _original_prices: originalPrices } : {}) },
     p_original_stock: originalStock,
     p_requested_stock: requestedStock,
   });
+
+  if (error?.code === "PT409") return { status: "error", message: "Otra persona cambió los precios. No se guardó ningún cambio. Volvé a abrir el producto para revisar los valores actuales." };
 
   if (error?.message.includes("Product stock changed while editing")) return {
     status: "error",
@@ -351,6 +371,7 @@ export async function updateProductAction(
   if (error) return databaseErrorState(error);
   if (!data) return { status: "error", message: "El producto no existe o no tenés acceso." };
 
+  const { data: savedPrices } = await context.supabase.from("products").select("cost_price, retail_price, wholesale_price").eq("organization_id", context.organization.id).eq("id", productId).maybeSingle();
   revalidatePath("/app/productos");
   revalidatePath(`/app/productos/${productId}`);
   revalidatePath(`/app/productos/${productId}/editar`);
@@ -360,6 +381,7 @@ export async function updateProductAction(
   revalidatePath("/tienda", "layout");
   return {
     status: "success",
+    ...(savedPrices ? { prices: { costPrice: Number(savedPrices.cost_price), retailPrice: Number(savedPrices.retail_price), wholesalePrice: savedPrices.wholesale_price === null ? null : Number(savedPrices.wholesale_price) } } : {}),
     message: requestedStock === originalStock
       ? "Producto actualizado correctamente."
       : "Producto y stock actualizados correctamente.",
@@ -390,17 +412,22 @@ export async function updateProductPricesAction(
     return { status: "error", message: "Revisá los importes indicados.", fieldErrors };
   }
 
-  const { data, error } = await context.supabase
-    .from("products")
-    .update({
-      cost_price: costPrice!,
-      retail_price: retailPrice!,
-      wholesale_price: wholesalePrice,
-    })
-    .eq("id", productId)
-    .eq("organization_id", context.organization.id)
-    .select("cost_price, retail_price, wholesale_price")
-    .maybeSingle();
+  const originals = {
+    costPrice: parsePriceInput(textValue(formData, "original_cost_price")),
+    retailPrice: parsePriceInput(textValue(formData, "original_retail_price")),
+    wholesalePrice: parsePriceInput(textValue(formData, "original_wholesale_price")),
+  };
+  if (originals.costPrice === null || originals.retailPrice === null) return { status: "error", message: "Volvé a abrir la edición de precios para obtener los valores actuales." };
+  const prices: ProductPrices = { costPrice: costPrice!, retailPrice: retailPrice!, wholesalePrice };
+  if (productPriceWarnings(originals as ProductPrices, prices).length && formData.get("acknowledge_price_warning") !== "on") return { status: "error", message: "Revisá y confirmá las advertencias de precios antes de guardar." };
+  const { data, error } = await context.supabase.rpc("update_management_prices", { p_organization_id: context.organization.id,
+    p_changes: [{ product_id: productId, cost_price: costPrice!, retail_price: retailPrice!, wholesale_price: wholesalePrice,
+      original_cost_price: originals.costPrice, original_retail_price: originals.retailPrice, original_wholesale_price: originals.wholesalePrice }], p_reason: "Edicion rapida de precios" });
+
+  if (error?.code === "PT409") {
+    const { data: current } = await context.supabase.from("products").select("cost_price, retail_price, wholesale_price").eq("organization_id", context.organization.id).eq("id", productId).maybeSingle();
+    return { status: "error", message: "Otra persona cambió estos precios. Tus valores no se guardaron; revisá los actuales antes de volver a editar.", ...(current ? { currentPrices: { costPrice: Number(current.cost_price), retailPrice: Number(current.retail_price), wholesalePrice: current.wholesale_price === null ? null : Number(current.wholesale_price) } } : {}) };
+  }
 
   if (error) return databaseErrorState(error);
   if (!data) return { status: "error", message: "El producto no existe o no tenés acceso." };
@@ -413,12 +440,40 @@ export async function updateProductPricesAction(
   return {
     status: "success",
     message: "Precios actualizados correctamente.",
-    prices: {
-      costPrice: Number(data.cost_price),
-      retailPrice: Number(data.retail_price),
-      wholesalePrice: data.wholesale_price === null ? null : Number(data.wholesale_price),
-    },
+    prices,
   };
+}
+
+export async function updateBatchPricesAction(_previous: InventoryActionState, formData: FormData): Promise<InventoryActionState> {
+  let raw: unknown;
+  try { raw = JSON.parse(textValue(formData, "changes")); } catch { return { status: "error", message: "La vista previa no es válida." }; }
+  const parsed = priceChangesSchema.safeParse(raw);
+  if (!parsed.success) return { status: "error", message: "Revisá los productos e importes de la vista previa." };
+  const warnings = parsed.data.some((item) => productPriceWarnings({ costPrice: item.original_cost_price, retailPrice: item.original_retail_price, wholesalePrice: item.original_wholesale_price }, { costPrice: item.cost_price, retailPrice: item.retail_price, wholesalePrice: item.wholesale_price }).length > 0);
+  if (warnings && formData.get("acknowledge_price_warning") !== "on") return { status: "error", message: "Confirmá las advertencias antes de aplicar los cambios." };
+  const context = await requireInventoryContext();
+  if (!context) return unauthenticatedState;
+  const { error } = await context.supabase.rpc("update_management_prices", { p_organization_id: context.organization.id, p_changes: parsed.data, p_reason: optionalText(formData, "reason", 500) ?? "Actualizacion de precios con vista previa" });
+  if (error?.code === "PT409") return { status: "error", message: "Un precio cambió desde la vista previa. No se actualizó ningún producto. Recargá la lista y generá una nueva vista previa." };
+  if (error) return databaseErrorState(error);
+  revalidatePath("/app/productos"); revalidatePath("/app/ventas"); revalidatePath("/app/compras"); revalidatePath("/app/compras/cargar");
+  return { status: "success", message: `Precios actualizados en ${parsed.data.length} productos. El historial anterior se conserva.` };
+}
+
+export async function classifyProductsAction(_previous: InventoryActionState, formData: FormData): Promise<InventoryActionState> {
+  let ids: unknown;
+  try { ids = JSON.parse(textValue(formData, "product_ids")); } catch { return { status: "error", message: "La selección no es válida." }; }
+  const selection = z.array(z.uuid()).min(1).max(500).refine((values) => new Set(values).size === values.length).safeParse(ids);
+  const category = textValue(formData, "category_id"), brand = textValue(formData, "brand_id");
+  if (!selection.success || (category !== "keep" && category !== "" && !isUuid(category)) || (brand !== "keep" && brand !== "" && !isUuid(brand)) || (category === "keep" && brand === "keep")) return { status: "error", message: "Seleccioná productos y al menos una clasificación a modificar." };
+  const context = await requireInventoryContext();
+  if (!context) return unauthenticatedState;
+  const { error } = await context.supabase.rpc("classify_management_products", { p_organization_id: context.organization.id, p_product_ids: selection.data,
+    p_set_category: category !== "keep", p_category_id: category === "keep" || !category ? undefined : category,
+    p_set_brand: brand !== "keep", p_brand_id: brand === "keep" || !brand ? undefined : brand });
+  if (error) return databaseErrorState(error);
+  revalidatePath("/app/productos"); revalidatePath("/app/compras/cargar");
+  return { status: "success", message: `Clasificación actualizada en ${selection.data.length} productos. No se modificaron precios ni stock.` };
 }
 
 export async function updateProductSupplierAction(

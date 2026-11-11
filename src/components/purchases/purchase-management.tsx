@@ -19,6 +19,7 @@ import {
   Truck,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import {
@@ -27,6 +28,7 @@ import {
   type PurchaseActionState,
 } from "@/app/app/compras/actions";
 import { ars, dateTime, localDate, quantity } from "@/lib/format";
+import { matchesManualSearch } from "@/lib/inventory/manual-search";
 
 import { OrderReceiptForm } from "./order-receipt-form";
 import type {
@@ -105,6 +107,7 @@ function PurchaseEditor({
   const [productSearch, setProductSearch] = useState("");
   const [lines, setLines] = useState<Record<string, OrderLine>>({});
   const [orderFilter, setOrderFilter] = useState<PurchaseOrderFilter>(initialOrderFilter);
+  const router = useRouter();
 
   const restockProducts = useMemo(
     () => products.filter((product) => product.needsRestock),
@@ -133,14 +136,8 @@ function PurchaseEditor({
   }, [restockProducts]);
 
   const catalog = useMemo(() => {
-    const term = productSearch.trim().toLocaleLowerCase("es");
     return products
-      .filter((product) => {
-        if (!term) return true;
-        return `${product.name} ${product.sku} ${product.barcode ?? ""}`
-          .toLocaleLowerCase("es")
-          .includes(term);
-      })
+      .filter((product) => matchesManualSearch([product.name, product.sku, product.barcode], productSearch))
       .slice(0, 80);
   }, [productSearch, products]);
 
@@ -455,7 +452,7 @@ function PurchaseEditor({
           </div>
           <label>
             <span className="sr-only">Filtrar órdenes</span>
-            <select className="field-input min-w-40" onChange={(event) => setOrderFilter(event.target.value as typeof orderFilter)} value={orderFilter}>
+            <select className="field-input min-w-40" onChange={(event) => { setOrderFilter(event.target.value as typeof orderFilter); router.push(`/app/compras?estado=${event.target.value}`, { scroll: false }); }} value={orderFilter}>
               <option value="open">Abiertas</option><option value="all">Todas</option><option value="draft">Borradores</option><option value="sent">Enviadas</option><option value="partial">Parciales</option><option value="received">Recibidas</option><option value="cancelled">Canceladas</option>
             </select>
           </label>

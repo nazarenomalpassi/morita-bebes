@@ -31,7 +31,7 @@ function ClosurePeriodSummary({ closure }: { closure: CashClosureHistoryEntry })
 }
 
 export function CashClosureHistorySection({ history }: { history: CashClosureHistory }) {
-  return <section className="cash-closure-history">
+  return <section className="cash-closure-history" id="historial-cierres">
     <div className="section-heading-row"><div><span className="eyebrow">Control diario</span><h2>Historial de cierres</h2><p>Cada cierre conserva el saldo esperado, el conteo informado y su diferencia original.</p></div><small>{history.count} cierres registrados</small></div>
     <div className="cash-closure-history-list">
       {history.closures.map((closure) => {

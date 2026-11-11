@@ -2,7 +2,7 @@
 
 import { Check, LoaderCircle, PackageCheck, PackagePlus, Plus, Search, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { loadInventoryEntryAction, type PurchaseActionState } from "@/app/app/compras/actions";
 import { ars, quantity } from "@/lib/format";
@@ -12,12 +12,17 @@ import { normalizeProductIdentifier, productIdentifierWarning } from "@/lib/prod
 import { useSubmissionState } from "@/lib/ui/use-submission-state";
 import type { PurchaseProduct } from "./purchase-types";
 import "./direct-purchase-entry.css";
+import { clearManagementDraft, ManagementDraftScope, useManagementDraft } from "@/lib/ui/use-management-draft";
+import { restoreInventoryLines, validateInventoryDraft } from "@/lib/purchases/draft";
+import { DraftNotice } from "@/components/forms/draft-notice";
+import { productPriceWarnings } from "@/lib/inventory/batch-prices";
 
 const subscribe = () => () => {};
-type Props = { products: PurchaseProduct[] };
+type ClassificationOption = { id: string; name: string };
+type Props = { products: PurchaseProduct[]; categories: ClassificationOption[]; brands: ClassificationOption[] };
 type Line = { product: PurchaseProduct; fields: DirectPurchaseFields; newProduct?: EntryNewProductFields };
 
-function NewProductFields({ value, onChange }: { value: EntryNewProductFields; onChange: (value: EntryNewProductFields) => void }) {
+function NewProductFields({ value, onChange, categories, brands }: { value: EntryNewProductFields; onChange: (value: EntryNewProductFields) => void; categories: ClassificationOption[]; brands: ClassificationOption[] }) {
   const nameRef = useRef<HTMLInputElement>(null);
   useEffect(() => { nameRef.current?.focus(); }, []);
   const warning = productIdentifierWarning(value.barcode) ?? productIdentifierWarning(value.sku);
@@ -25,27 +30,34 @@ function NewProductFields({ value, onChange }: { value: EntryNewProductFields; o
     <label className="field-label">Nombre del nuevo producto<input className="field-input" maxLength={180} minLength={2} onChange={(event) => onChange({ ...value, name: event.target.value })} ref={nameRef} required value={value.name} /></label>
     <label className="field-label">SKU / código interno<input autoComplete="off" className="field-input" maxLength={80} onBlur={() => onChange({ ...value, sku: normalizeProductIdentifier(value.sku) })} onChange={(event) => onChange({ ...value, sku: event.target.value })} required type="text" value={value.sku} /></label>
     <label className="field-label">Código de barras<input autoComplete="off" className="field-input" maxLength={80} onBlur={() => onChange({ ...value, barcode: normalizeProductIdentifier(value.barcode) })} onChange={(event) => onChange({ ...value, barcode: event.target.value })} type="text" value={value.barcode} /></label>
-    <label className="field-label">Unidad de medida<select className="field-input" onChange={(event) => onChange({ ...value, unit: event.target.value as EntryNewProductFields["unit"] })} value={value.unit}>{entryProductUnits.map((unit) => <option key={unit} value={unit}>{unit.charAt(0).toUpperCase() + unit.slice(1)}</option>)}</select></label>
+    <label className="field-label">Unidad de medida<select aria-label="Unidad de medida" className="field-input" onChange={(event) => onChange({ ...value, unit: event.target.value as EntryNewProductFields["unit"] })} value={value.unit}>{entryProductUnits.map((unit) => <option key={unit} value={unit}>{unit.charAt(0).toUpperCase() + unit.slice(1)}</option>)}</select></label>
+    <label className="field-label">Categoría (opcional)<select aria-label="Categoría (opcional)" className="field-input" onChange={(event) => onChange({ ...value, category_id: event.target.value })} value={value.category_id ?? ""}><option value="">Sin categoría</option>{categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+    <label className="field-label">Marca (opcional)<select aria-label="Marca (opcional)" className="field-input" onChange={(event) => onChange({ ...value, brand_id: event.target.value })} value={value.brand_id ?? ""}><option value="">Sin marca</option>{brands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
     {warning ? <p className="form-error direct-purchase-code-warning">{warning}</p> : null}
   </div>;
 }
 
-function DirectPurchaseEditor({ products, onNew }: Props & { onNew: () => void }) {
+function DirectPurchaseEditor({ products, categories, brands, onNew }: Props & { onNew: () => void }) {
   const ready = useSyncExternalStore(subscribe, () => true, () => false);
-  const requestId = useRef<string | null>(null);
+  const [requestId, setRequestId] = useState("");
+  const scope = useContext(ManagementDraftScope);
   const searchRef = useRef<HTMLInputElement>(null);
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [state, action, pending] = useSubmissionState<PurchaseActionState, FormData>(async (previous, formData) => {
-    requestId.current ??= crypto.randomUUID();
-    formData.set("request_id", requestId.current);
+    const id = requestId || crypto.randomUUID();
+    setRequestId(id);
+    formData.set("request_id", id);
     try {
-      return await loadInventoryEntryAction(previous, formData);
+      const result = await loadInventoryEntryAction(previous, formData);
+      if (result.entryId) clearManagementDraft(scope, "inventory-entry");
+      return result;
     } catch {
       return { error: "No pudimos confirmar la carga. Conservamos el detalle; revisá tu conexión y volvé a intentar." };
     }
   }, {});
+  const draft = useManagementDraft("inventory-entry", { requestId, notes, lines: lines.map((line) => ({ productId: line.product.id, originalCost: line.product.costPrice, originalRetail: line.product.retailPrice, originalWholesale: line.product.wholesalePrice, fields: line.fields, ...(line.newProduct ? { newProduct: line.newProduct } : {}) })) }, lines.length > 0 && !state.entryId, validateInventoryDraft);
   const results = useMemo(() => filterPurchaseProducts(products, search).slice(0, 8), [products, search]);
   const parsedLines = lines.map((line) => ({ ...line, parsed: parseDirectPurchaseFields(line.fields),
     newParsed: line.newProduct ? entryNewProductSchema.safeParse(line.newProduct) : null,
@@ -101,6 +113,10 @@ function DirectPurchaseEditor({ products, onNew }: Props & { onNew: () => void }
   return <form action={action} className="direct-purchase-form" onKeyDown={(event) => {
     if (event.key === "Enter" && event.target instanceof HTMLInputElement) event.preventDefault();
   }}>
+    <DraftNotice unavailable={draft.unavailable} onRestore={draft.recovered ? () => {
+      const saved = draft.recovered!;
+      setLines(restoreInventoryLines(saved, products)); setNotes(saved.notes); setRequestId(saved.requestId); draft.resolve();
+    } : undefined} onDiscard={() => draft.resolve()} />
     <fieldset className="direct-purchase-fields" disabled={pending || !ready}>
       <section className="direct-purchase-search" aria-label="Buscar artículos recibidos">
         <div className="direct-purchase-search-tools">
@@ -131,7 +147,7 @@ function DirectPurchaseEditor({ products, onNew }: Props & { onNew: () => void }
         <div className="direct-purchase-lines">
           {parsedLines.map(({ product, fields, parsed, newProduct, conflict }) => <article className="direct-purchase-line" data-new-product={Boolean(newProduct)} data-product-id={product.id} key={product.id}>
             <div className="direct-purchase-line-head"><div><h3>{product.name}</h3><small>{product.sku} · Stock actual {quantity.format(product.currentStock)} {product.unit}</small></div><button aria-label={`Quitar ${product.name}`} className="icon-button icon-button-danger" onClick={() => setLines((current) => current.filter((line) => line.product.id !== product.id))} title="Quitar artículo" type="button"><Trash2 size={17} aria-hidden="true" /></button></div>
-            {newProduct ? <><span className="tag direct-purchase-new-tag">Nuevo producto</span><NewProductFields value={newProduct} onChange={(value) => setLines((current) => current.map((line) => line.product.id === product.id ? { ...line, newProduct: value, product: { ...line.product, name: value.name.trim() || "Nuevo producto", sku: normalizeProductIdentifier(value.sku), barcode: normalizeProductIdentifier(value.barcode) || null, unit: value.unit } } : line))} /></> : null}
+            {newProduct ? <><span className="tag direct-purchase-new-tag">Nuevo producto</span><NewProductFields brands={brands} categories={categories} value={newProduct} onChange={(value) => setLines((current) => current.map((line) => line.product.id === product.id ? { ...line, newProduct: value, product: { ...line.product, name: value.name.trim() || "Nuevo producto", sku: normalizeProductIdentifier(value.sku), barcode: normalizeProductIdentifier(value.barcode) || null, unit: value.unit } } : line))} /></> : null}
             {conflict ? <p className="form-error">Este código ya pertenece a {conflict}. Buscá ese producto o ingresá otro código.</p> : null}
             <div className="direct-purchase-line-fields">
               {([
@@ -152,6 +168,7 @@ function DirectPurchaseEditor({ products, onNew }: Props & { onNew: () => void }
               </label>)}
             </div>
             <div className="direct-purchase-line-total"><span>Stock estimado luego del ingreso: <strong>{quantity.format(product.currentStock + (parsed.quantity ?? 0))} {product.unit}</strong></span><span>Subtotal <strong>{ars.format((parsed.quantity ?? 0) * (parsed.cost ?? 0))}</strong></span></div>
+            {!newProduct && parsed.valid ? productPriceWarnings({ costPrice: product.costPrice, retailPrice: product.retailPrice, wholesalePrice: product.wholesalePrice }, { costPrice: parsed.cost!, retailPrice: parsed.retail!, wholesalePrice: parsed.wholesale }).map((warning) => <p className="form-info" key={warning}>{warning}</p>) : null}
           </article>)}
         </div>
       </section>
@@ -170,7 +187,7 @@ function DirectPurchaseEditor({ products, onNew }: Props & { onNew: () => void }
     {totalOutOfRange ? <p className="form-error">El valor de la mercadería supera el máximo permitido.</p> : null}
     <footer className="direct-purchase-footer">
       <div><small>Valor a costo · {lines.length} {lines.length === 1 ? "producto" : "productos"}</small><strong>{ars.format(total)}</strong></div>
-      <button className="button button-primary" disabled={!ready || pending || !canSave} type="submit">{pending ? <LoaderCircle className="animate-spin" size={18} aria-hidden="true" /> : <PackageCheck size={18} aria-hidden="true" />}{pending ? "Registrando ingreso..." : "Guardar e ingresar stock"}</button>
+      <button className="button button-primary" disabled={!ready || !draft.ready || Boolean(draft.recovered) || pending || !canSave} type="submit">{pending ? <LoaderCircle className="animate-spin" size={18} aria-hidden="true" /> : <PackageCheck size={18} aria-hidden="true" />}{pending ? "Registrando ingreso..." : "Guardar e ingresar stock"}</button>
     </footer>
   </form>;
 }

@@ -24,7 +24,7 @@ const customerSchema = z.object({
 export async function saveCustomerAction(
   _previousState: ActionState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ActionState & { customer?: { id: string; name: string } }> {
   const parsed = customerSchema.safeParse({
     id: textField(formData, "id"),
     name: textField(formData, "name"),
@@ -57,19 +57,19 @@ export async function saveCustomerAction(
         .update(payload)
         .eq("id", parsed.data.id)
         .eq("organization_id", organization.id)
-        .select("id")
+        .select("id, name")
         .maybeSingle()
     : await supabase.from("customers").insert({
         ...payload,
         organization_id: organization.id,
-      }).select("id").single();
+      }).select("id, name").single();
 
   if (result.error) return { error: friendlyDatabaseError(result.error) };
   if (!result.data) return { error: "El cliente ya no existe o no está disponible." };
 
   revalidatePath("/app/clientes");
   revalidatePath("/app/ventas");
-  return { message: parsed.data.id ? "Cliente actualizado." : "Cliente creado." };
+  return { message: parsed.data.id ? "Cliente actualizado." : "Cliente creado.", customer: result.data };
 }
 
 export async function toggleCustomerAction(formData: FormData) {

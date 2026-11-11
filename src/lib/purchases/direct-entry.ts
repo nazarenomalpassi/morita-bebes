@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { parsePriceInput } from "../inventory/prices";
 import { isScientificNotationIdentifier, normalizeProductIdentifier } from "../product-identifiers";
+import { matchesManualSearch } from "../inventory/manual-search";
 
 const money = z.number().min(0).max(999_999_999_999.99).refine((value) => value === Number(value.toFixed(2)));
 export const directPurchaseItemsSchema = z.array(z.object({
@@ -25,6 +26,8 @@ export const entryNewProductSchema = z.object({
   sku: identifier.refine((value) => value.length > 0),
   barcode: z.string().nullable().transform(normalizeProductIdentifier).refine((value) => value.length <= 80 && !isScientificNotationIdentifier(value)).transform((value) => value || null),
   unit: z.enum(entryProductUnits),
+  category_id: z.union([z.uuid(), z.literal("")]).optional(),
+  brand_id: z.union([z.uuid(), z.literal("")]).optional(),
 }).strict();
 export const inventoryEntryItemsSchema = z.array(z.object({
   product_id: z.uuid(),
@@ -50,7 +53,7 @@ export const inventoryEntryItemsSchema = z.array(z.object({
     return true;
   });
 export type InventoryEntryItem = z.infer<typeof inventoryEntryItemsSchema>[number];
-export type EntryNewProductFields = { name: string; sku: string; barcode: string; unit: typeof entryProductUnits[number] };
+export type EntryNewProductFields = { name: string; sku: string; barcode: string; unit: typeof entryProductUnits[number]; category_id?: string; brand_id?: string };
 
 export function entryIdentifierConflict(fields: EntryNewProductFields, products: { name: string; sku: string; barcode: string | null }[]) {
   const codes = [fields.sku, fields.barcode].map(normalizeProductIdentifier).filter(Boolean);
@@ -73,11 +76,6 @@ export function parseDirectPurchaseFields(fields: DirectPurchaseFields) {
 }
 
 export function filterPurchaseProducts<T extends { name: string; sku: string; barcode: string | null }>(products: T[], search: string) {
-  const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("es");
-  const tokens = normalize(search.trim()).split(/\s+/).filter(Boolean);
-  if (!tokens.length) return [];
-  return products.filter((product) => {
-    const text = normalize(`${product.name} ${product.sku} ${product.barcode ?? ""}`);
-    return tokens.every((token) => text.includes(token));
-  });
+  if (!search.trim()) return [];
+  return products.filter((product) => matchesManualSearch([product.name, product.sku, product.barcode], search));
 }

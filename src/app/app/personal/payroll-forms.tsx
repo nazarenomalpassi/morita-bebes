@@ -15,6 +15,7 @@ import type { ActionState } from "@/lib/actions/form-state";
 import { ars } from "@/lib/format";
 import type { PayrollEmployeeSummary } from "@/lib/payroll/dashboard";
 import { sanitizeDecimalInput } from "@/lib/sales/decimal-input";
+import { CompletePaymentButton } from "@/components/forms/complete-payment-button";
 
 function localToday() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -115,10 +116,10 @@ export function SettlementForm({
       {roundedTotal > 0 ? <>
         <label className="field-label sale-combined-toggle"><span>Pago combinado</span><input checked={combined} onChange={(event) => setCombined(event.target.checked)} type="checkbox" /></label>
         {combined ? <div className="sale-payment-allocation">
-          {paymentMethods.map((method) => <label className="field-label" key={method.id}>{method.name}<input className="field-input" inputMode="decimal" onChange={(event) => {
+          {paymentMethods.map((method) => <div className="sale-payment-allocation-row" key={method.id}><label className="field-label">{method.name}<input className="field-input" inputMode="decimal" onChange={(event) => {
             const sanitized = sanitizeDecimalInput(event.target.value);
             if (sanitized !== null) setAmounts((current) => ({ ...current, [method.id]: sanitized }));
-          }} placeholder="$ 0,00" type="text" value={amounts[method.id] ?? ""} /></label>)}
+          }} placeholder="$ 0,00" type="text" value={amounts[method.id] ?? ""} /></label><CompletePaymentButton total={roundedTotal} amounts={amounts} methodId={method.id} methodName={method.name} disabled={pending} onChange={(value) => setAmounts((current) => ({ ...current, [method.id]: value }))} /></div>)}
           <small className={matches ? "positive-value" : "negative-value"}>{ars.format(allocated)} / {ars.format(roundedTotal)}</small>
         </div> : <label className="field-label">Medio de egreso<select className="field-input" onChange={(event) => setMethodId(event.target.value)} value={methodId}><option disabled value="">Seleccionar</option>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.name}</option>)}</select></label>}
       </> : <p className="payroll-advance-hint">Sin saldo a pagar. No se generará otro egreso.</p>}
@@ -200,6 +201,7 @@ export function PaymentForm({
                     value={paymentAmounts[method.id] ?? ""}
                   />
                 </label>
+                <CompletePaymentButton total={roundedTotal} amounts={paymentAmounts} methodId={method.id} methodName={method.name} disabled={pending} onChange={(value) => setPaymentAmounts((current) => ({ ...current, [method.id]: value }))} />
               </div>
             ))}
             {!allocationMatches ? <small className="form-span-2">La suma debe coincidir exactamente con {ars.format(roundedTotal)}.</small> : null}

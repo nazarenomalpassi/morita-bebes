@@ -4,15 +4,18 @@ import { toggleCommissionAgentAction } from "@/app/app/comisionistas/actions";
 import { CommissionAgentForm } from "@/app/app/comisionistas/commission-agent-form";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requestedPage } from "@/lib/data/pagination";
+import { ManagementPagination } from "@/components/forms/management-pagination";
 
 export const dynamic = "force-dynamic";
 
 export default async function CommissionAgentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; pagina?: string }>;
 }) {
   const params = await searchParams;
+  const page = requestedPage(params.pagina);
   const supabase = await createServerSupabaseClient();
   const organization = await getCurrentOrganization(supabase);
   if (!organization) return null;
@@ -27,11 +30,12 @@ export default async function CommissionAgentsPage({
 
   let request = supabase
     .from("commission_agents")
-    .select("id, first_name, last_name, phone, route_description, notes, is_active")
+    .select("id, first_name, last_name, phone, route_description, notes, is_active", { count: "exact" })
     .eq("organization_id", organization.id)
     .order("last_name")
     .order("first_name")
-    .limit(500);
+    .order("id")
+    .range((page - 1) * 50, page * 50 - 1);
   if (!showInactive) request = request.eq("is_active", true);
   if (query) {
     request = request.or(
@@ -39,7 +43,7 @@ export default async function CommissionAgentsPage({
     );
   }
 
-  const { data: agents, error } = await request;
+  const { data: agents, error, count } = await request;
   if (error) throw new Error("No se pudieron cargar los comisionistas.");
 
   return (
@@ -102,6 +106,7 @@ export default async function CommissionAgentsPage({
         ))}
         {(agents?.length ?? 0) === 0 ? <p className="inline-empty">No hay comisionistas para esta búsqueda.</p> : null}
       </div>
+      <ManagementPagination path="/app/comisionistas" params={params} page={page} total={count ?? 0} label="Páginas de comisionistas" />
     </div>
   );
 }

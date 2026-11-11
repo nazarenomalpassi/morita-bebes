@@ -4,15 +4,18 @@ import { toggleCustomerAction } from "@/app/app/clientes/actions";
 import { CustomerForm } from "@/app/app/clientes/customer-form";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requestedPage } from "@/lib/data/pagination";
+import { ManagementPagination } from "@/components/forms/management-pagination";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; pagina?: string }>;
 }) {
   const params = await searchParams;
+  const page = requestedPage(params.pagina);
   const supabase = await createServerSupabaseClient();
   const organization = await getCurrentOrganization(supabase);
   if (!organization) return null;
@@ -25,10 +28,11 @@ export default async function CustomersPage({
   const showInactive = params.estado === "todos";
   let request = supabase
     .from("customers")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("organization_id", organization.id)
     .order("name")
-    .limit(500);
+    .order("id")
+    .range((page - 1) * 50, page * 50 - 1);
   if (!showInactive) request = request.eq("is_active", true);
   if (query) {
     request = request.or(
@@ -36,7 +40,7 @@ export default async function CustomersPage({
     );
   }
 
-  const { data: customers, error } = await request;
+  const { data: customers, error, count } = await request;
   if (error) throw new Error("No se pudieron cargar los clientes.");
 
   return (
@@ -93,6 +97,7 @@ export default async function CustomersPage({
         ))}
         {(customers?.length ?? 0) === 0 && <p className="inline-empty">No hay clientes para estos filtros.</p>}
       </div>
+      <ManagementPagination path="/app/clientes" params={params} page={page} total={count ?? 0} label="Páginas de clientes" />
     </div>
   );
 }

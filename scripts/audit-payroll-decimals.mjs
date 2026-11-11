@@ -59,7 +59,8 @@ export async function auditPayrollDecimals({ page, baseUrl, artifacts, attempt, 
 
       await transferInput.fill("417663.96");
       assert(await submit.isDisabled(), "Mismatched cents must prevent payment");
-      await transferInput.fill(existingSettlement ? "417663,90" : "417663,95");
+      await form.getByRole("button", { name: `Completar restante en ${transfer.name}`, exact: true }).click();
+      assert.equal(await transferInput.inputValue(), existingSettlement ? "417663.90" : "417663.95");
       assert(await submit.isEnabled());
       await page.screenshot({ path: path.join(artifacts, `payroll-decimals-${existingSettlement ? "pending-desktop" : "settlement-mobile"}.png`), fullPage: true });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "Payroll fields must not overflow the viewport");

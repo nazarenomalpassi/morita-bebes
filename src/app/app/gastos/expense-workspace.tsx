@@ -9,6 +9,8 @@ import type { ExpenseCategory, ExpenseRecord } from "@/lib/expenses/types";
 import { ars, localDate } from "@/lib/format";
 import { usePreservedActionState } from "@/lib/ui/use-preserved-action-state";
 import type { ActionState } from "@/lib/actions/form-state";
+import Link from "next/link";
+import { expenseAmountForMethod } from "@/lib/expenses/filters";
 
 type Props = {
   initialExpenses: ExpenseRecord[];
@@ -19,6 +21,8 @@ type Props = {
   employee: string;
   role: "owner" | "admin" | "staff";
   closedThrough: string | null;
+  range: { from: string; to: string } | null;
+  category: string; payment: string; status: "posted" | "all";
 };
 
 function CancelExpenseForm({ id, onSaved }: { id: string; onSaved: (expense: ExpenseRecord, message: string) => void }) {
@@ -31,7 +35,7 @@ function CancelExpenseForm({ id, onSaved }: { id: string; onSaved: (expense: Exp
   return <form action={formAction} onReset={onReset} className="row-menu-popover"><input name="id" type="hidden" value={id} /><label className="field-label">Motivo<input className="field-input" minLength={3} name="reason" required /></label>{state.error ? <p className="form-error" role="alert">{state.error}</p> : null}<button className="button button-danger" disabled={pending} type="submit">{pending ? "Anulando..." : "Anular gasto"}</button></form>;
 }
 
-export function ExpenseWorkspace({ initialExpenses, categories, paymentMethods, people, month, employee, role, closedThrough }: Props) {
+export function ExpenseWorkspace({ initialExpenses, categories, paymentMethods, people, month, employee, role, closedThrough, range, category, payment, status }: Props) {
   const [updates, setUpdates] = useState<Record<string, ExpenseRecord>>({});
   const [addedCategories, setAddedCategories] = useState<ExpenseCategory[]>([]);
   const [message, setMessage] = useState("");
@@ -41,13 +45,14 @@ export function ExpenseWorkspace({ initialExpenses, categories, paymentMethods, 
     const existing = records.get(update.id);
     if (!existing || Date.parse(update.updated_at) >= Date.parse(existing.updated_at)) records.set(update.id, update);
   }
-  const expenses = [...records.values()].filter((expense) => expense.expense_date.startsWith(`${month}-`)
-    && !expense.expense_categories?.is_payroll_advance && (!employee || role === "staff" || expense.created_by === employee))
+  const expenses = [...records.values()].filter((expense) => (range ? expense.expense_date >= range.from && expense.expense_date <= range.to : expense.expense_date.startsWith(`${month}-`))
+    && !expense.expense_categories?.is_payroll_advance && (!employee || role === "staff" || (expense.created_by ?? "unassigned") === employee)
+    && (!category || (expense.category_id ?? "none") === category) && (!payment || expenseAmountForMethod(expense, payment) > 0) && (status !== "posted" || expense.status === "posted"))
     .sort((left, right) => right.expense_date.localeCompare(left.expense_date) || right.created_at.localeCompare(left.created_at));
   const categoryOptions = [...new Map([...categories, ...addedCategories].map((category) => [category.id, category])).values()].sort((left, right) => left.name.localeCompare(right.name, "es"));
   const names = new Map(people);
   const methodNames = new Map(paymentMethods.map((method) => [method.id, method.name]));
-  const total = expenses.filter((expense) => expense.status === "posted").reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const total = expenses.filter((expense) => expense.status === "posted").reduce((sum, expense) => sum + Math.round(expenseAmountForMethod(expense, payment) * 100), 0) / 100;
   function onSaved(expense: ExpenseRecord, feedback: string) {
     setUpdates((current) => ({ ...current, [expense.id]: expense }));
     setMessage(feedback);
@@ -58,7 +63,8 @@ export function ExpenseWorkspace({ initialExpenses, categories, paymentMethods, 
       onSaved(expense, feedback);
       if (createPanel.current) createPanel.current.open = false;
     }} /></div></details></header>
-    <section className="summary-strip"><span className="summary-strip-icon"><WalletCards size={20} /></span><div><small>Total vigente</small><strong>{ars.format(total)}</strong></div><div><small>Movimientos</small><strong>{expenses.length}</strong></div><form className="month-filter" method="get"><label className="field-label">Mes<input className="field-input" defaultValue={month} name="mes" type="month" /></label>{role !== "staff" ? <label className="field-label">Empleado<select className="field-input" defaultValue={employee} name="empleado"><option value="">Todos</option>{people.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label> : null}<button className="button button-secondary" type="submit">Ver</button></form></section>
+    <section className="summary-strip"><span className="summary-strip-icon"><WalletCards size={20} /></span><div><small>{payment ? "Total del medio" : "Total vigente"}</small><strong>{ars.format(total)}</strong></div><div><small>Movimientos</small><strong>{expenses.length}</strong></div></section>
+    <form className="filter-bar flex-wrap" method="get">{range ? <><label className="field-label">Desde<input className="field-input" defaultValue={range.from} name="desde" type="date" /></label><label className="field-label">Hasta<input className="field-input" defaultValue={range.to} name="hasta" type="date" /></label></> : <label className="field-label">Mes<input className="field-input" defaultValue={month} name="mes" type="month" /></label>}{role !== "staff" ? <label className="field-label">Empleado<select className="field-input" defaultValue={employee} name="empleado"><option value="">Todos</option><option value="unassigned">Sin identificar</option>{people.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label> : null}<label className="field-label">Categoría<select className="field-input" defaultValue={category} name="categoria"><option value="">Todas</option><option value="none">Sin categoría</option>{categoryOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="field-label">Medio<select className="field-input" defaultValue={payment} name="pago"><option value="">Todos</option><option value="none">Sin indicar</option>{paymentMethods.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="field-label">Estado<select className="field-input" defaultValue={status} name="estado"><option value="all">Todos</option><option value="posted">Vigentes</option></select></label><button className="button button-secondary" type="submit">Ver</button><Link className="button button-ghost" href="/app/gastos">Limpiar filtros</Link></form>
     {message ? <p className="form-success" role="status">{message}</p> : null}
     {role !== "staff" ? <details className="maintenance-panel"><summary>Categorías de gasto</summary><ExpenseCategoryForm onSaved={(category) => setAddedCategories((current) => [...current, category])} /></details> : null}
     <div className="data-table-wrap" data-mobile-cards><table className="data-table min-w-[58rem]"><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Pago</th><th>Realizado por</th><th>Importe</th><th>Estado</th><th><span className="sr-only">Acciones</span></th></tr></thead><tbody>

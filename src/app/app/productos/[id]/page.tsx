@@ -21,6 +21,9 @@ import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { resolveStoreImage } from "@/lib/store/images";
 import type { Database } from "@/types/database";
+import { readInventoryAttributes, inventoryAttributeLabels } from "@/lib/inventory/attributes";
+import { requestedPage } from "@/lib/data/pagination";
+import { ManagementPagination } from "@/components/forms/management-pagination";
 
 import {
   createStockMovementAction,
@@ -44,26 +47,29 @@ const kindLabels: Record<Database["public"]["Enums"]["inventory_movement_kind"],
   sale: "Venta",
 };
 
-export default async function ProductDetailPage({ params }: PageProps<"/app/productos/[id]">) {
+export default async function ProductDetailPage({ params, searchParams }: PageProps<"/app/productos/[id]">) {
   const { id } = await params;
+  const raw = await searchParams;
+  const query = Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
+  const movementPage = requestedPage(query.movimientos), pricePage = requestedPage(query.precios);
   const supabase = await createServerSupabaseClient();
   const organization = await getCurrentOrganization(supabase);
   if (!organization) redirect("/app");
 
-  const [product, movements, suppliers, images] = await Promise.all([
+  const [product, movements, suppliers, images, priceHistory] = await Promise.all([
     supabase
       .from("products")
-      .select("id, name, sku, barcode, description, cost_price, retail_price, wholesale_price, wholesale_min_quantity, current_stock, min_stock, target_stock, needs_restock, unit, is_active, is_published, store_slug, default_supplier_id, categories(name), brands(name), suppliers(id, business_name)")
+      .select("id, name, sku, barcode, description, cost_price, retail_price, wholesale_price, wholesale_min_quantity, current_stock, min_stock, target_stock, needs_restock, unit, is_active, is_published, store_slug, default_supplier_id, inventory_attributes, categories(name), brands(name), suppliers(id, business_name)")
       .eq("id", id)
       .eq("organization_id", organization.id)
       .maybeSingle(),
     supabase
       .from("inventory_movements")
-      .select("id, kind, quantity_delta, unit_cost, notes, occurred_at")
+      .select("id, kind, quantity_delta, unit_cost, notes, occurred_at", { count: "exact" })
       .eq("organization_id", organization.id)
       .eq("product_id", id)
       .order("occurred_at", { ascending: false })
-      .limit(100),
+      .order("id").range((movementPage - 1) * 50, movementPage * 50 - 1),
     supabase
       .from("suppliers")
       .select("id, business_name")
@@ -71,8 +77,9 @@ export default async function ProductDetailPage({ params }: PageProps<"/app/prod
       .eq("is_active", true)
       .order("business_name"),
     supabase.from("product_images").select("id, storage_path, alt_text, sort_order, is_primary").eq("organization_id", organization.id).eq("product_id", id).order("sort_order"),
+    supabase.from("product_price_changes").select("id, previous_prices, new_prices, reason, created_at", { count: "exact" }).eq("organization_id", organization.id).eq("product_id", id).order("created_at", { ascending: false }).order("id").range((pricePage - 1) * 10, pricePage * 10 - 1),
   ]);
-  if (product.error || movements.error || suppliers.error || images.error) {
+  if (product.error || movements.error || suppliers.error || images.error || priceHistory.error) {
     throw new Error("No se pudo cargar el producto.");
   }
   if (!product.data) notFound();
@@ -140,6 +147,7 @@ export default async function ProductDetailPage({ params }: PageProps<"/app/prod
             <div className="flex justify-between gap-4 py-3"><dt className="text-[var(--ink-muted)]">Precio mayorista</dt><dd className="text-right font-semibold">{product.data.wholesale_price === null ? "Sin cargar" : money.format(Number(product.data.wholesale_price))}</dd></div>
             <div className="flex justify-between gap-4 py-3"><dt className="text-[var(--ink-muted)]">Mínimo mayorista</dt><dd className="text-right font-semibold">{quantity.format(Number(product.data.wholesale_min_quantity))}</dd></div>
           </dl>
+          <dl className="divide-y divide-[var(--line)] text-sm">{Object.entries(readInventoryAttributes(product.data.inventory_attributes)).filter(([, value]) => value).map(([key, value]) => <div className="flex justify-between gap-4 py-3" key={key}><dt className="text-[var(--ink-muted)]">{inventoryAttributeLabels[key as keyof typeof inventoryAttributeLabels]}</dt><dd className="text-right font-semibold break-words">{value}</dd></div>)}</dl>
           {product.data.description ? <p className="mt-4 text-sm leading-6 text-[var(--ink-muted)]">{product.data.description}</p> : null}
         </section>
 
@@ -163,7 +171,7 @@ export default async function ProductDetailPage({ params }: PageProps<"/app/prod
       <section className="mt-12" aria-labelledby="history-heading">
         <div className="border-b border-[var(--line)] pb-3">
           <h2 className="text-base font-bold" id="history-heading">Historial de inventario</h2>
-          <p className="mt-1 text-sm text-[var(--ink-muted)]">Últimos 100 movimientos.</p>
+          <p className="mt-1 text-sm text-[var(--ink-muted)]">{movements.count ?? 0} movimientos registrados.</p>
         </div>
         {movements.data?.length ? (
           <div className="data-table-wrap mt-4" data-mobile-cards>
@@ -188,7 +196,12 @@ export default async function ProductDetailPage({ params }: PageProps<"/app/prod
         ) : (
           <div className="mt-4 flex min-h-36 items-center justify-center gap-3 rounded-[8px] border border-dashed border-[var(--line)] bg-white/60 px-4 text-sm text-[var(--ink-muted)]"><Truck size={20} /> Todavía no hay movimientos registrados.</div>
         )}
+        <ManagementPagination path={`/app/productos/${id}`} params={query} page={movementPage} total={movements.count ?? 0} pageKey="movimientos" label="Páginas del historial de inventario" hash="#history-heading" />
       </section>
+      <section aria-labelledby="price-history-heading" className="mt-10"><div className="section-heading-row"><h2 id="price-history-heading">Historial de precios</h2></div><div className="data-table-wrap" data-mobile-cards><table className="data-table"><thead><tr><th>Fecha</th><th>Costo anterior → nuevo</th><th>Minorista anterior → nuevo</th><th>Mayorista anterior → nuevo</th><th>Motivo</th></tr></thead><tbody>{priceHistory.data?.map((change) => {
+        const before = change.previous_prices as Record<string, number | null>, after = change.new_prices as Record<string, number | null>;
+        return <tr key={change.id}><td data-label="Fecha">{dateTime.format(new Date(change.created_at))}</td>{([ ["cost", "Costo"], ["retail", "Minorista"], ["wholesale", "Mayorista"] ] as const).map(([field, label]) => <td data-label={label} key={field}>{before[field] === null ? "Sin cargar" : money.format(before[field]!)} → {after[field] === null ? "Sin cargar" : money.format(after[field]!)}</td>)}<td data-label="Motivo">{change.reason}</td></tr>;
+      })}{!priceHistory.data?.length ? <tr><td className="table-empty-cell" colSpan={5}>Sin cambios de precios registrados.</td></tr> : null}</tbody></table></div><ManagementPagination path={`/app/productos/${id}`} params={query} page={pricePage} total={priceHistory.count ?? 0} size={10} pageKey="precios" label="Páginas del historial de precios" hash="#price-history-heading" /></section>
     </div>
   );
 }

@@ -10,24 +10,28 @@ import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { getPurchaseCatalog } from "@/lib/purchases/catalog";
 import { ars } from "@/lib/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requestedPage } from "@/lib/data/pagination";
+import { fetchAllRows } from "@/lib/data/fetch-all-rows";
+import { ManagementPagination } from "@/components/forms/management-pagination";
 
 export const dynamic = "force-dynamic";
 
-export default async function PurchasesPage({ searchParams }: { searchParams: Promise<{ estado?: string; orden?: string }> }) {
+export default async function PurchasesPage({ searchParams }: { searchParams: Promise<{ estado?: string; orden?: string; pagina?: string }> }) {
   const params = await searchParams;
+  const page = requestedPage(params.pagina);
   const initialOrderFilter: PurchaseOrderFilter = ["open", "all", "draft", "sent", "partial", "received", "cancelled"].includes(params.estado ?? "")
     ? params.estado as PurchaseOrderFilter : "open";
   const supabase = await createServerSupabaseClient();
   const organization = await getCurrentOrganization(supabase);
   if (!organization) return null;
-  const [{ products, suppliers }, ordersResult] = await Promise.all([
+  let ordersQuery = supabase.from("purchase_orders").select("id, reference, status, ordered_at, expected_at, received_at, estimated_total, notes, created_at, supplier_id, suppliers(business_name), purchase_order_items(id, product_id, quantity_ordered, quantity_received, unit_cost, products(name, sku, unit))", { count: "exact" }).eq("organization_id", organization.id);
+  if (initialOrderFilter === "open") ordersQuery = ordersQuery.in("status", ["draft", "sent", "partial"]);
+  else if (initialOrderFilter !== "all") ordersQuery = ordersQuery.eq("status", initialOrderFilter);
+  if (params.orden && /^[0-9a-f-]{36}$/i.test(params.orden)) ordersQuery = ordersQuery.eq("id", params.orden);
+  const [{ products, suppliers }, ordersResult, openOrders] = await Promise.all([
     getPurchaseCatalog(supabase, organization.id),
-    supabase
-      .from("purchase_orders")
-      .select("id, reference, status, ordered_at, expected_at, received_at, estimated_total, notes, created_at, supplier_id, suppliers(business_name), purchase_order_items(id, product_id, quantity_ordered, quantity_received, unit_cost, products(name, sku, unit))")
-      .eq("organization_id", organization.id)
-      .order("created_at", { ascending: false })
-      .limit(150),
+    ordersQuery.order("created_at", { ascending: false }).order("id").range((page - 1) * 50, page * 50 - 1),
+    fetchAllRows((from, to) => supabase.from("purchase_orders").select("id, estimated_total").eq("organization_id", organization.id).in("status", ["draft", "sent", "partial"]).order("id").range(from, to)),
   ]);
 
   if (ordersResult.error) {
@@ -59,8 +63,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
   }));
   const shortages = products.filter((product) => product.needsRestock);
   const supplierPending = shortages.filter((product) => !product.supplierId).length;
-  const openOrders = orders.filter((order) => ["draft", "sent", "partial"].includes(order.status));
-  const openValue = openOrders.reduce((sum, order) => sum + order.estimatedTotal, 0);
+  const openValue = openOrders.reduce((sum, order) => sum + Number(order.estimated_total), 0);
   const canManage = true;
 
   return (
@@ -74,7 +77,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-        <Link className="button button-primary gap-2" href="/app/compras/cargar"><PackagePlus size={17} /> Cargar orden</Link>
+        <Link className="button button-primary gap-2" href="/app/compras/cargar"><PackagePlus size={17} /> Ingresar mercadería</Link>
         <a className="button button-secondary gap-2" href="/api/compras/faltantes">
           <Download size={17} /> Exportar faltantes
         </a>
@@ -95,6 +98,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
       )}
 
       <PurchaseManagement
+        key={`${initialOrderFilter}:${page}:${params.orden ?? ""}`}
         canCancel={organization.role !== "staff"}
         canManage={canManage}
         initialOrderFilter={initialOrderFilter}
@@ -103,6 +107,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
         products={products}
         suppliers={suppliers}
       />
+      <ManagementPagination path="/app/compras" params={params} page={page} total={ordersResult.count ?? 0} label="Páginas de compras" />
     </div>
   );
 }

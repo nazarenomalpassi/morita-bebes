@@ -47,6 +47,7 @@ import type { AnalyticsReport, ReportSearchParams, ResolvedReportPeriod } from "
 import { percentageChange } from "@/lib/reports/analytics";
 import type { ExpenseAnalyticsReport } from "@/lib/reports/expenses";
 import { rankProducts, rankingLimit } from "@/lib/reports/product-ranking";
+import { expenseDetailsHref } from "@/lib/reports/drilldown";
 
 import { MonthlyGoalForm } from "./monthly-goal-form";
 
@@ -287,15 +288,15 @@ function EmployeeTable({ report, period }: { report: AnalyticsReport; period: Re
 function InventorySummary({ report }: { report: AnalyticsReport }) {
   const inventory = report.inventory;
   const items = [
-    { label: "Productos activos", value: number.format(inventory.productCount), icon: Boxes },
+    { label: "Productos activos", value: number.format(inventory.productCount), icon: Boxes, href: "/app/productos?status=active" },
     { label: "Unidades en stock", value: number.format(inventory.stockUnits), icon: ShoppingBag },
-    { label: "Sin stock", value: number.format(inventory.outOfStock), icon: PackageSearch },
-    { label: "Stock bajo", value: number.format(inventory.lowStock), icon: Gauge },
+    { label: "Sin stock", value: number.format(inventory.outOfStock), icon: PackageSearch, href: "/app/productos?status=zero" },
+    { label: "Stock bajo", value: number.format(inventory.lowStock), icon: Gauge, href: "/app/productos?status=low" },
     { label: "Sobre objetivo", value: number.format(inventory.excessStock), icon: TrendingUp },
     { label: "Inventario a costo", value: money.format(inventory.costValue), icon: CircleDollarSign },
     { label: "Venta potencial", value: money.format(inventory.retailValue), icon: WalletCards },
   ];
-  return <div className="inventory-stat-grid">{items.map(({ label, value, icon: Icon }) => <article key={label}><Icon size={18} /><span>{label}</span><strong>{value}</strong></article>)}</div>;
+  return <div className="inventory-stat-grid">{items.map(({ label, value, icon: Icon, href }) => <article key={label}><Icon size={18} /><span>{href ? <Link href={href}>{label}</Link> : label}</span><strong>{value}</strong></article>)}</div>;
 }
 
 function SlowProducts({ report }: { report: AnalyticsReport }) {
@@ -329,7 +330,7 @@ function ExpenseReport({ expenseReport, period, report, search }: { expenseRepor
   const timeline = expenseReport.timeline.map((point) => ({ ...point, label: point.date ? formatDate(point.date) : "", previousLabel: point.previousDate ? formatDate(point.previousDate) : "" }));
   return <div className="analytics-view">
     <p className="analytics-scope-note">Gastos vigentes. No incluye sueldos ni adelantos de Personal.</p>
-    <section aria-label="Estadísticas de gastos" className="analytics-kpi-grid analytics-kpi-grid-compact">{metrics.map((metric) => <KpiCard compare={period.compare} current={expenseReport.current[metric.key]} detail={metric.detail} icon={metric.icon} inverse key={metric.key} label={metric.label} previous={expenseReport.previous[metric.key]} value={metric.value} />)}</section>
+    <section aria-label="Estadísticas de gastos" className="analytics-kpi-grid analytics-kpi-grid-compact">{metrics.map((metric) => <KpiCard href={expenseDetailsHref(period.from, period.to, search)} compare={period.compare} current={expenseReport.current[metric.key]} detail={metric.detail} icon={metric.icon} inverse key={metric.key} label={metric.label} previous={expenseReport.previous[metric.key]} value={metric.value} />)}</section>
     <ChartPanel eyebrow="Egresos operativos" icon={TrendingUp} title="Evolución de gastos">
       {expenseReport.current.count || (period.compare && expenseReport.previous.count) ? <div className="chart-frame chart-frame-large"><ResponsiveContainer height="100%" width="100%"><AreaChart data={timeline} margin={{ top: 12, right: 10, left: 2, bottom: 0 }}><CartesianGrid stroke="#e7e2eb" strokeDasharray="3 4" vertical={false} /><XAxis axisLine={false} dataKey="label" fontSize={11} tickLine={false} /><YAxis axisLine={false} fontSize={11} tickFormatter={(value: number) => compactMoney.format(value)} tickLine={false} width={72} /><Tooltip formatter={(value) => money.format(Number(value))} labelFormatter={(_, payload) => payload?.[0]?.payload ? `${payload[0].payload.label}${period.compare ? ` / ${payload[0].payload.previousLabel}` : ""}` : ""} /><Area dataKey="current" fill="#f9e2db" name="Período actual" stroke="#a94d35" strokeWidth={2} type="monotone" />{period.compare ? <Line dataKey="previous" dot={false} name="Período anterior" stroke="#5d506d" strokeDasharray="5 4" strokeWidth={2} type="monotone" /> : null}<Legend /></AreaChart></ResponsiveContainer></div> : <ChartEmpty>No hay gastos para los filtros seleccionados.</ChartEmpty>}
     </ChartPanel>
@@ -407,6 +408,6 @@ export function AnalyticsDashboard({ report, expenseReport, period, search }: { 
 
     {tab === "profitability" ? <div className="analytics-view"><section className="analytics-kpi-grid analytics-kpi-grid-compact">{kpis.filter((item) => ["Ventas totales", "Ganancia comprobable", "Egresos totales", "Margen bruto"].includes(item.label)).map((item) => <KpiCard compare={period.compare} key={item.label} {...item} />)}</section><div className="analytics-two-grid"><ProfitabilityPanel report={report} /><ExpenseCategoryChart report={report} /></div><ChartPanel eyebrow="Ingresos y egresos" icon={WalletCards} title="Evolución comparada"><div className="chart-frame chart-frame-large"><ResponsiveContainer height="100%" width="100%"><AreaChart data={report.timeline.map((point) => ({ ...point, label: formatDate(point.currentLabel) }))} margin={{ top: 12, right: 10, left: 2, bottom: 0 }}><CartesianGrid stroke="#e7e2eb" strokeDasharray="3 4" vertical={false} /><XAxis axisLine={false} dataKey="label" fontSize={11} tickLine={false} /><YAxis axisLine={false} fontSize={11} tickFormatter={(value: number) => compactMoney.format(value)} tickLine={false} width={72} /><Tooltip formatter={(value) => money.format(Number(value))} /><Legend /><Area dataKey="currentRevenue" fill="#d9eee8" name="Ventas" stroke="#3f9483" strokeWidth={2} type="monotone" /><Line dataKey="currentExpenses" dot={false} name="Egresos totales" stroke="#e88f82" strokeWidth={2} type="monotone" /></AreaChart></ResponsiveContainer></div></ChartPanel></div> : null}
 
-    <div className="analytics-drilldown"><Link href={tab === "expenses" ? `/app/gastos?mes=${period.to.slice(0, 7)}` : salesHref}>{tab === "expenses" ? "Administrar gastos" : "Ver operaciones del período"} <ArrowRight size={16} /></Link></div>
+    <div className="analytics-drilldown"><Link href={tab === "expenses" ? expenseDetailsHref(period.from, period.to, search) : salesHref}>{tab === "expenses" ? "Administrar gastos del período" : "Ver operaciones del período"} <ArrowRight size={16} /></Link></div>
   </>;
 }

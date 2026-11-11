@@ -27,6 +27,8 @@ export function ProductSearch({ filters }: { filters: ProductFilters }) {
     const timer = window.setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q: query, category: filters.category, supplier: filters.supplier, status: filters.status });
+        if (filters.brand) params.set("brand", filters.brand);
+        if (filters.pending) params.set("pending", filters.pending);
         const response = await fetch(`/api/productos/sugerencias?${params}`, { signal: controller.signal, cache: "no-store" });
         if (!response.ok) throw new Error("Search unavailable");
         const data = await response.json() as { products: ProductSuggestion[] };
@@ -36,7 +38,7 @@ export function ProductSearch({ filters }: { filters: ProductFilters }) {
       }
     }, 220);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [open, query, filters.category, filters.supplier, filters.status]);
+  }, [open, query, filters.category, filters.supplier, filters.status, filters.brand, filters.pending]);
 
   function choose(product: ProductSuggestion) {
     setValue(product.name);

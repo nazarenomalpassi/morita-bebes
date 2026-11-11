@@ -1,0 +1,906 @@
+{
+  "scope": "Management system only. Storefront, photos, online order workflows, returns and permission expansion excluded.",
+  "startedAt": "2026-11-11T02:18:41.655Z",
+  "database": [
+    {
+      "name": "verify_backdated_expenses_after_closure.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_card_payment_surcharges.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_daily_cash_closures.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_direct_purchase_entry.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_ecommerce_storefront.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_employee_permissions.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_expense_combined_payments.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_functional_audit.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_invoker_security.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_management_report_rankings.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_management_workflow_improvements.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_manual_sale_surcharge.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_personnel_payroll_cash_workflow.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_safe_sale_submission_and_cancellation.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_staff_product_update.sql",
+      "passed": true
+    },
+    {
+      "name": "verify_standalone_inventory_entries.sql",
+      "passed": true
+    }
+  ],
+  "pages": [
+    {
+      "name": "owner 1366 /app",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/productos/nuevo",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/productos/5c366c9e-abcb-4c84-85a2-2f45290d2dd2",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/productos/5c366c9e-abcb-4c84-85a2-2f45290d2dd2/editar",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/proveedores",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/proveedores/nuevo",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/proveedores/e91c4bb1-43cf-44af-94fb-61dd184ace5b/editar",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/categorias",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/compras",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/compras/cargar",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/clientes",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/comisionistas",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/reportes",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/tienda",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/usuarios",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/auditoria",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/configuracion",
+      "passed": true
+    },
+    {
+      "name": "owner 1366 /app/importar",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/productos/nuevo",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/productos/5c366c9e-abcb-4c84-85a2-2f45290d2dd2",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/productos/5c366c9e-abcb-4c84-85a2-2f45290d2dd2/editar",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/proveedores",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/proveedores/nuevo",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/proveedores/e91c4bb1-43cf-44af-94fb-61dd184ace5b/editar",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/categorias",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/compras",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/compras/cargar",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/clientes",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/comisionistas",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/reportes",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/tienda",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/usuarios",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/auditoria",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/configuracion",
+      "passed": true
+    },
+    {
+      "name": "owner 390 /app/importar",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 375 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 430 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 768 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 1024 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/personal",
+      "passed": true
+    },
+    {
+      "name": "owner 1920 /app/pedidos-web",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/productos",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/productos/5c366c9e-abcb-4c84-85a2-2f45290d2dd2/editar",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/proveedores",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/categorias",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/ventas",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/compras",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/clientes",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/gastos",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/caja",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/comisionistas",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/mi-sueldo",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/usuarios",
+      "passed": true
+    },
+    {
+      "name": "staff 390 /app/reportes",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /login",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /actualizar-clave",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/carrito",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/ingresar",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/registro",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /tienda/recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 1366 /sin-conexion",
+      "passed": true
+    },
+    {
+      "name": "public 390 /login",
+      "passed": true
+    },
+    {
+      "name": "public 390 /recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 390 /actualizar-clave",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/carrito",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/ingresar",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/registro",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "public 390 /tienda/recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 390 /sin-conexion",
+      "passed": true
+    },
+    {
+      "name": "public 375 /login",
+      "passed": true
+    },
+    {
+      "name": "public 375 /recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 375 /actualizar-clave",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/carrito",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/ingresar",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/registro",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "public 375 /tienda/recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 375 /sin-conexion",
+      "passed": true
+    },
+    {
+      "name": "public 768 /login",
+      "passed": true
+    },
+    {
+      "name": "public 768 /recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 768 /actualizar-clave",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/productos",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/carrito",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/ingresar",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/registro",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/mayoristas",
+      "passed": true
+    },
+    {
+      "name": "public 768 /tienda/recuperar",
+      "passed": true
+    },
+    {
+      "name": "public 768 /sin-conexion",
+      "passed": true
+    }
+  ],
+  "flows": [
+    {
+      "name": "Workflow sale predictive search, draft recovery, inline customer and exact payment remainder",
+      "passed": true
+    },
+    {
+      "name": "Workflow inventory draft keeps prices, adds optional category and brand atomically",
+      "passed": true
+    },
+    {
+      "name": "Workflow quick price conflict preserves typed values and records successful edits",
+      "passed": true
+    },
+    {
+      "name": "Workflow batch preview, classification, optional attributes and pending filters",
+      "passed": true
+    },
+    {
+      "name": "Workflow expense payment remainder and report drilldown keep complete filters",
+      "passed": true
+    },
+    {
+      "name": "Workflow closure history reads records older than the previous 90-row cap",
+      "passed": true
+    },
+    {
+      "name": "Workflow staff keeps inventory permissions on mobile and cannot see another user's draft",
+      "passed": true
+    },
+    {
+      "name": "Standalone entry saves quantities and propagates catalog prices",
+      "passed": true
+    },
+    {
+      "name": "Staff mobile standalone entry creates products and increments stock",
+      "passed": true
+    },
+    {
+      "name": "Direct receipt preserves draft on price conflict and safely reloads current prices",
+      "passed": true
+    },
+    {
+      "name": "Concurrent direct-receipt retries increment stock only once",
+      "passed": true
+    },
+    {
+      "name": "Existing purchase creation and later receipt still work",
+      "passed": true
+    },
+    {
+      "name": "Concurrent new-product entries reject cross-field duplicate identifiers",
+      "passed": true
+    },
+    {
+      "name": "Monthly payroll settlement accepts comma cents on mobile",
+      "passed": true
+    },
+    {
+      "name": "Pending payroll payment accepts decimal cents",
+      "passed": true
+    },
+    {
+      "name": "Branded server loading shell before hydration at five sizes",
+      "passed": true
+    },
+    {
+      "name": "Reload completes without leaving branded loading or blocking the page",
+      "passed": true
+    },
+    {
+      "name": "Real throttled section navigation streams the branded loading screen",
+      "passed": true
+    },
+    {
+      "name": "Slow section request has feedback and rapid navigation can interrupt it",
+      "passed": true
+    },
+    {
+      "name": "Navigation feedback clears after a transient RSC failure",
+      "passed": true
+    },
+    {
+      "name": "Sidebar hover is stable, keyboard focus visible and reduced motion honored",
+      "passed": true
+    },
+    {
+      "name": "Touch drawer navigation and loader never create horizontal scroll",
+      "passed": true
+    },
+    {
+      "name": "Management predictive search, keyboard selection and page sizes",
+      "passed": true
+    },
+    {
+      "name": "Management expense statistics reconcile combined payments and filters",
+      "passed": true
+    },
+    {
+      "name": "Management report product ranking offers 10, 20 and 50",
+      "passed": true
+    },
+    {
+      "name": "Product quick price edit persisted",
+      "passed": true
+    },
+    {
+      "name": "Combined expense via UI persisted and debited once",
+      "passed": true
+    },
+    {
+      "name": "Mobile drawer keyboard and focus",
+      "passed": true
+    },
+    {
+      "name": "Customer validation preserves input and allows retry",
+      "passed": true
+    },
+    {
+      "name": "Commission agent creation and route search",
+      "passed": true
+    },
+    {
+      "name": "Refresh recovery preserves new unsaved input",
+      "passed": true
+    },
+    {
+      "name": "Scanner stock zero, repeated scans and 100% discount sale",
+      "passed": true
+    },
+    {
+      "name": "Invalid URL filters do not crash financial pages",
+      "passed": true
+    },
+    {
+      "name": "Hide balances synchronizes globally and survives reload",
+      "passed": true
+    },
+    {
+      "name": "Store cart to web order to paid management sale",
+      "passed": true
+    },
+    {
+      "name": "PWA manifest, first install and offline feedback",
+      "passed": true
+    },
+    {
+      "name": "No uncaught browser exceptions",
+      "passed": true
+    }
+  ],
+  "failures": [],
+  "productionBuild": {
+    "passed": true
+  },
+  "finishedAt": "2026-11-11T02:22:14.444Z",
+  "unitTests": {
+    "files": 31,
+    "passed": 165
+  },
+  "lint": {
+    "passed": true,
+    "warnings": 0
+  },
+  "migration": {
+    "file": "20261111012655_management_workflow_improvements.sql",
+    "appliedToProduction": true,
+    "newTable": "public.product_price_changes",
+    "newProductFields": [
+      "inventory_attributes",
+      "management_search_text"
+    ],
+    "originalDataVerified": {
+      "tables": 33,
+      "products": 998,
+      "changedTables": 0
+    }
+  },
+  "backups": {
+    "logicalCatalogAndPreviousFunctions": "morita-management-release-20261111-before.json",
+    "outsideGit": true
+  },
+  "resolutions": [
+    [
+      375,
+      812
+    ],
+    [
+      390,
+      844
+    ],
+    [
+      430,
+      932
+    ],
+    [
+      768,
+      1024
+    ],
+    [
+      1024,
+      768
+    ],
+    [
+      1366,
+      768
+    ],
+    [
+      1920,
+      1080
+    ]
+  ],
+  "notes": [
+    "Browser tests used isolated local Supabase only. SQL test clocks were controlled inside rollback-only transactions; production time and cash logic were not changed.",
+    "No automatic category, brand, stock, price or historical corrections were applied.",
+    "Drafts are scoped by user and organization in sessionStorage for the same browser tab.",
+    "Security advisors: no warnings. Existing storefront performance-policy warnings were not modified."
+  ],
+  "files": [
+    "audits/2026-11-11-management-workflows.json",
+    "scripts/audit-direct-purchases.mjs",
+    "scripts/audit-management-workflows.mjs",
+    "scripts/audit-payroll-decimals.mjs",
+    "scripts/audit-system.mjs",
+    "scripts/verify-management-release.mjs",
+    "src/app/api/productos/sugerencias/route.ts",
+    "src/app/app/caja/cash-closure-history.tsx",
+    "src/app/app/caja/page.tsx",
+    "src/app/app/clientes/actions.ts",
+    "src/app/app/clientes/page.tsx",
+    "src/app/app/comisionistas/page.tsx",
+    "src/app/app/compras/cargar/page.tsx",
+    "src/app/app/compras/page.tsx",
+    "src/app/app/gastos/expense-forms.tsx",
+    "src/app/app/gastos/expense-workspace.tsx",
+    "src/app/app/gastos/page.tsx",
+    "src/app/app/layout.tsx",
+    "src/app/app/personal/payroll-forms.tsx",
+    "src/app/app/productos/[id]/editar/page.tsx",
+    "src/app/app/productos/[id]/page.tsx",
+    "src/app/app/productos/actions.ts",
+    "src/app/app/productos/page.tsx",
+    "src/app/app/ventas/sale-workspace.tsx",
+    "src/components/forms/complete-payment-button.tsx",
+    "src/components/forms/draft-notice.tsx",
+    "src/components/forms/management-draft-provider.tsx",
+    "src/components/forms/management-pagination.tsx",
+    "src/components/forms/management-workflows.css",
+    "src/components/inventory/action-state.ts",
+    "src/components/inventory/product-batch-tools.tsx",
+    "src/components/inventory/product-filter-options.tsx",
+    "src/components/inventory/product-form.tsx",
+    "src/components/inventory/product-price-cells.tsx",
+    "src/components/inventory/product-search.tsx",
+    "src/components/purchases/direct-purchase-entry.tsx",
+    "src/components/purchases/purchase-management.tsx",
+    "src/components/reports/analytics-dashboard.tsx",
+    "src/components/sales/quick-customer.tsx",
+    "src/lib/data/pagination.ts",
+    "src/lib/expenses/filters.ts",
+    "src/lib/inventory/attributes.ts",
+    "src/lib/inventory/batch-prices.ts",
+    "src/lib/inventory/manual-search.ts",
+    "src/lib/inventory/product-search.ts",
+    "src/lib/inventory/workflow-improvements.test.ts",
+    "src/lib/payments/allocation.ts",
+    "src/lib/purchases/direct-entry.ts",
+    "src/lib/purchases/draft.ts",
+    "src/lib/reports/drilldown.ts",
+    "src/lib/sales/draft.ts",
+    "src/lib/ui/use-management-draft.ts",
+    "src/types/database.ts",
+    "supabase/migrations/20261111012655_management_workflow_improvements.sql",
+    "supabase/tests/verify_management_workflow_improvements.sql"
+  ]
+}

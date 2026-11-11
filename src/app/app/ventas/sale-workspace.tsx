@@ -15,7 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSubmissionState } from "@/lib/ui/use-submission-state";
 
 import {
@@ -42,6 +42,12 @@ import {
 import { calculateSaleAmounts, isFullyDiscountedSale } from "@/lib/sales/discount";
 import { sanitizeDecimalInput } from "@/lib/sales/decimal-input";
 import { useModalFocus } from "@/lib/ui/use-modal-focus";
+import { matchesManualSearch } from "@/lib/inventory/manual-search";
+import { clearManagementDraft, ManagementDraftScope, useManagementDraft } from "@/lib/ui/use-management-draft";
+import { restoreSaleCart, validateSaleDraft } from "@/lib/sales/draft";
+import { DraftNotice } from "@/components/forms/draft-notice";
+import { CompletePaymentButton } from "@/components/forms/complete-payment-button";
+import { QuickCustomer } from "@/components/sales/quick-customer";
 
 type Option = { id: string; name: string };
 type PaymentMethod = Option & {
@@ -94,6 +100,11 @@ function SaleEditor({
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [addedCustomers, setAddedCustomers] = useState<Option[]>([]);
+  const [notes, setNotes] = useState("");
+  const [occurredAt, setOccurredAt] = useState(localDateTimeValue);
+  const [adjustmentsOpen, setAdjustmentsOpen] = useState(false);
   const cartRef = useRef<SaleCartLine[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const confirmedSubmitRef = useRef(false);
@@ -131,13 +142,10 @@ function SaleEditor({
 
   const matches = useMemo(() => {
     const availableProducts = products.filter((product) => product.is_active && product.current_stock > 0);
-    const normalized = query.trim().toLocaleLowerCase("es");
-    if (!normalized) return availableProducts.slice(0, 8);
+    if (!query.trim()) return availableProducts.slice(0, 8);
     return availableProducts
       .filter((product) =>
-        [product.name, product.sku, product.barcode ?? ""].some((value) =>
-          value.toLocaleLowerCase("es").includes(normalized),
-        ),
+        matchesManualSearch([product.name, product.sku, product.barcode], query),
       )
       .slice(0, 12);
   }, [products, query]);
@@ -202,6 +210,29 @@ function SaleEditor({
   const cardPosnetTotal = roundMoney(cardBaseTotal + cardSurcharge);
   const total = roundMoney(paymentBaseTotal + cardSurcharge);
   const selectedSurchargePercentage = cardSurchargePercentage(selectedMethod, selectedCardType);
+  const customerOptions = [...new Map([...customers, ...addedCustomers].map((customer) => [customer.id, customer])).values()];
+  const draft = useManagementDraft("sale", { cart: cart.map(({ id, quantity }) => ({ id, quantity })), customerId, notes, occurredAt, discountInput, manualSurchargeInput, combinedPayment, selectedPaymentMethod, selectedCardType, paymentAmounts, paymentCardTypes, idempotencyKey }, cart.length > 0, validateSaleDraft);
+  const staleCart = cart.some((line) => {
+    const current = products.find((product) => product.id === line.id);
+    return !current?.is_active || current.current_stock < line.quantity || current.retail_price !== line.retail_price;
+  });
+
+  function restoreDraft() {
+    const saved = draft.recovered;
+    if (!saved) return;
+    replaceCart(restoreSaleCart(saved, products));
+    setCustomerId(customerOptions.some((customer) => customer.id === saved.customerId) ? saved.customerId : "");
+    setNotes(saved.notes); setOccurredAt(saved.occurredAt || localDateTimeValue());
+    setDiscountInput(saved.discountInput); setManualSurchargeInput(saved.manualSurchargeInput);
+    setCombinedPayment(saved.combinedPayment);
+    setSelectedPaymentMethod(paymentMethods.some((method) => method.id === saved.selectedPaymentMethod) ? saved.selectedPaymentMethod : "");
+    setSelectedCardType(saved.selectedCardType);
+    setPaymentAmounts(Object.fromEntries(Object.entries(saved.paymentAmounts).filter(([id]) => paymentMethods.some((method) => method.id === id))));
+    setPaymentCardTypes(saved.paymentCardTypes); setIdempotencyKey(saved.idempotencyKey);
+    setAdjustmentsOpen(Boolean(saved.discountInput || saved.manualSurchargeInput || saved.notes));
+    draft.resolve();
+    showScanFeedback({ tone: "success", title: "Borrador recuperado", detail: "Revisá cantidades, precios y pagos: se utilizaron los productos y el stock disponibles actualmente." });
+  }
 
   function replaceCart(nextCart: SaleCartLine[]) {
     cartRef.current = nextCart;
@@ -335,6 +366,7 @@ function SaleEditor({
   }
 
   function handleFormKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
+    if (event.target instanceof HTMLElement && !event.currentTarget.contains(event.target)) return;
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
     if (event.target === scannerInputRef.current) return;
     if (event.target instanceof HTMLTextAreaElement) return;
@@ -469,6 +501,7 @@ function SaleEditor({
       </section>
 
       <section className="sale-cart" aria-label="Detalle de la venta">
+        <DraftNotice unavailable={draft.unavailable} onRestore={draft.recovered ? restoreDraft : undefined} onDiscard={() => draft.resolve()} />
         <div className="section-heading-row">
           <div>
             <p className="eyebrow">Venta actual</p>
@@ -538,15 +571,16 @@ function SaleEditor({
         <input name="idempotency_key" type="hidden" value={idempotencyKey} />
 
         <div className="sale-fields">
-          <label className="field-label">
+          <div className="sale-customer-field"><label className="field-label">
             Cliente
-            <select className="field-input" name="customer_id" defaultValue="">
+            <select className="field-input" name="customer_id" onChange={(event) => setCustomerId(event.target.value)} value={customerId}>
               <option value="">Consumidor final</option>
-              {customers.map((customer) => (
+              {customerOptions.map((customer) => (
                 <option key={customer.id} value={customer.id}>{customer.name}</option>
               ))}
             </select>
           </label>
+          <QuickCustomer onCreated={(customer) => { setAddedCustomers((current) => [...current, customer]); setCustomerId(customer.id); }} /></div>
           {isNoPaymentSale ? (
             <div className="sale-no-payment sale-field-wide">
               <strong>Sin cobro</strong>
@@ -590,7 +624,7 @@ function SaleEditor({
               </div>
               {paymentMethods.map((method) => (
                 <div className={`sale-payment-allocation-row ${method.code === "card" ? "sale-payment-card-row" : ""}`} key={method.id}>
-                  <label className="field-label">
+                  <div><label className="field-label">
                     {method.name}
                     <input className="field-input" inputMode="decimal" onChange={(event) => {
                       const sanitized = sanitizeDecimalInput(event.target.value);
@@ -599,6 +633,7 @@ function SaleEditor({
                       }
                     }} type="text" value={paymentAmounts[method.id] ?? ""} />
                   </label>
+                  <CompletePaymentButton total={paymentBaseTotal} amounts={paymentAmounts} methodId={method.id} methodName={method.name} disabled={pending} onChange={(value) => setPaymentAmounts((current) => ({ ...current, [method.id]: value }))} /></div>
                   {method.code === "card" && Number(paymentAmounts[method.id] || 0) > 0 ? (
                     <label className="field-label">
                       Tipo
@@ -625,7 +660,8 @@ function SaleEditor({
               ))}
             </div>
           ) : null}
-          {canChooseDate ? <label className="field-label">Fecha y hora<input className="field-input" defaultValue={localDateTimeValue()} name="occurred_at" type="datetime-local" /></label> : null}
+          <details className="sale-adjustments sale-field-wide" onToggle={(event) => setAdjustmentsOpen(event.currentTarget.open)} open={adjustmentsOpen}><summary>Descuento, recargo y observaciones{validDiscount > 0 || validManualSurcharge > 0 ? " · Con ajustes" : ""}</summary><div className="sale-adjustments-fields">
+          {canChooseDate ? <label className="field-label">Fecha y hora<input className="field-input" name="occurred_at" onChange={(event) => setOccurredAt(event.target.value)} type="datetime-local" value={occurredAt} /></label> : null}
           <label className="field-label">
             Descuento (%)
             <input
@@ -654,8 +690,9 @@ function SaleEditor({
           </label>
           <label className="field-label sale-field-wide">
             Nota interna
-            <textarea className="field-textarea" maxLength={500} name="notes" placeholder={validDiscount === 100 ? "Ej. Consumo personal del dueño" : undefined} rows={2} />
+            <textarea className="field-textarea" maxLength={500} name="notes" onChange={(event) => setNotes(event.target.value)} placeholder={validDiscount === 100 ? "Ej. Consumo personal del dueño" : undefined} rows={2} value={notes} />
           </label>
+          </div></details>
         </div>
 
         <div className="sale-checkout">
@@ -686,7 +723,8 @@ function SaleEditor({
             </p>
           )}
 
-          <button className="button button-primary sale-submit" disabled={pending || cart.length === 0 || !discountIsValid || !manualSurchargeIsValid || (requiresPayment && paymentMethods.length === 0) || !allocationMatches || total < 0} onClick={() => {
+          {staleCart ? <div className="form-error" role="alert">Cambió el stock o el precio de un producto. <button className="button button-secondary" onClick={() => { replaceCart(restoreSaleCart({ cart: cart.map(({ id, quantity }) => ({ id, quantity })) }, products)); setPaymentAmounts({}); }} type="button">Revisar valores actuales</button></div> : null}
+          <button className="button button-primary sale-submit" disabled={pending || !draft.ready || Boolean(draft.recovered) || staleCart || cart.length === 0 || !discountIsValid || !manualSurchargeIsValid || (requiresPayment && paymentMethods.length === 0) || !allocationMatches || total < 0} onClick={() => {
             setIdempotencyKey((current) => current || crypto.randomUUID());
             setConfirmationOpen(true);
           }} type="button">
@@ -733,7 +771,14 @@ export function SaleWorkspace(props: {
   paymentMethods: PaymentMethod[];
   canChooseDate: boolean;
 }) {
-  const [state, action, pending] = useSubmissionState(createSaleAction, initialState);
+  const scope = useContext(ManagementDraftScope);
+  const [state, action, pending] = useSubmissionState(async (previous: SaleActionState, data: FormData) => {
+    try {
+      const result = await createSaleAction(previous, data);
+      if (result.saleId) clearManagementDraft(scope, "sale");
+      return result;
+    } catch { return { error: "No pudimos confirmar la venta. Conservamos el borrador: verificá las últimas ventas antes de reintentar." }; }
+  }, initialState);
   return (
     <SaleEditor
       {...props}

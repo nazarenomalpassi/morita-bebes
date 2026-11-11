@@ -10,10 +10,12 @@ import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { ars, dateTime } from "@/lib/format";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isIsoDate } from "@/lib/date";
+import { requestedPage } from "@/lib/data/pagination";
+import { ManagementPagination } from "@/components/forms/management-pagination";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { desde?: string; hasta?: string; caja?: string; tipo?: string; direccion?: string; buscar?: string; pagina?: string };
+type SearchParams = { desde?: string; hasta?: string; caja?: string; tipo?: string; direccion?: string; buscar?: string; pagina?: string; cierres?: string };
 const localDateTime = (value: string) => dateTime.format(new Date(value));
 const uuid = (value?: string) => value && /^[0-9a-f-]{36}$/i.test(value) ? value : undefined;
 const movementType = (value?: string) => value && Object.hasOwn(cashMovementLabels, value) ? value as CashMovementType : undefined;
@@ -27,6 +29,7 @@ const dateEnd = (value?: string) => {
 
 export default async function CashPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
+  const closurePage = requestedPage(params.cierres);
   const supabase = await createServerSupabaseClient();
   const organization = await getCurrentOrganization(supabase);
   if (!organization) return null;
@@ -55,7 +58,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
       p_search: params.buscar?.trim() || undefined, p_limit: 50, p_offset: (page - 1) * 50,
     }),
     supabase.from("payment_methods").select("id, name").eq("organization_id", organization.id).eq("is_active", true).order("sort_order").order("name"),
-    supabase.rpc("list_daily_cash_closures", { p_organization_id: organization.id, p_limit: 90, p_offset: 0 }),
+    supabase.rpc("list_daily_cash_closures", { p_organization_id: organization.id, p_limit: 30, p_offset: (closurePage - 1) * 30 }),
   ]);
   if (dashboardResult.error || methodsResult.error || historyResult.error) {
     console.error("No se pudo cargar Caja y cierres", dashboardResult.error ?? methodsResult.error ?? historyResult.error);
@@ -99,6 +102,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
     </div></section>
 
     <CashClosureHistorySection history={closureHistory} />
+    <ManagementPagination path="/app/caja" params={params} page={closurePage} total={closureHistory.count} size={30} pageKey="cierres" hash="#historial-cierres" label="Páginas de cierres" />
 
     <section className="cash-movements-section"><div className="section-heading-row"><div><span className="eyebrow">Libro inmutable</span><h2>Movimientos</h2></div><small>{dashboard.movement_count} resultados</small></div>
       <form className="cash-filters" method="get"><label className="field-label">Desde<input className="field-input" defaultValue={params.desde} name="desde" type="date" /></label><label className="field-label">Hasta<input className="field-input" defaultValue={params.hasta} name="hasta" type="date" /></label><label className="field-label">Caja<select className="field-input" defaultValue={params.caja ?? ""} name="caja"><option value="">Todas</option>{activeAccounts.map((account) => <option key={account.id} value={account.payment_method_id}>{account.name}</option>)}</select></label><label className="field-label">Tipo<select className="field-input" defaultValue={params.tipo ?? ""} name="tipo"><option value="">Todos</option>{Object.entries(cashMovementLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="field-label">Flujo<select className="field-input" defaultValue={params.direccion ?? ""} name="direccion"><option value="">Entradas y salidas</option><option value="credit">Entradas</option><option value="debit">Salidas</option></select></label><label className="field-label cash-search-field">Buscar<span className="input-shell input-shell-start"><Search aria-hidden="true" size={16} /><input className="field-input" defaultValue={params.buscar} name="buscar" placeholder="Concepto o referencia" /></span></label><button className="button button-secondary" type="submit">Filtrar</button><a className="button button-ghost" href="/app/caja">Limpiar</a></form>

@@ -17,6 +17,9 @@ import { ProductSearch } from "@/components/inventory/product-search";
 import { getCurrentOrganization } from "@/lib/data/current-organization";
 import { normalizeProductSearch, productPageSize, queryManagementProducts } from "@/lib/inventory/product-search";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { ProductBatchTools } from "@/components/inventory/product-batch-tools";
+import { readInventoryAttributes } from "@/lib/inventory/attributes";
+import { ProductFilterOptions } from "@/components/inventory/product-filter-options";
 
 const quantity = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 3 });
 
@@ -46,11 +49,13 @@ export default async function ProductsPage({
   const pageSize = productPageSize(first(params.page_size));
   const categoryId = first(params.category);
   const supplierId = first(params.supplier);
+  const brandId = first(params.brand);
+  const pendingData = first(params.pending);
   const status = first(params.status) || "active";
   const requestedPage = Number.parseInt(first(params.page), 10);
   const currentPage = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  const [categoriesResult, suppliersResult] = await Promise.all([
+  const [categoriesResult, suppliersResult, brandsResult] = await Promise.all([
     supabase
       .from("categories")
       .select("id, name")
@@ -63,13 +68,14 @@ export default async function ProductsPage({
       .eq("organization_id", organization.id)
       .eq("is_active", true)
       .order("business_name"),
+    supabase.from("brands").select("id, name").eq("organization_id", organization.id).eq("is_active", true).order("name"),
   ]);
 
-  const filters = { q, category: categoryId, supplier: supplierId, status };
+  const filters = { q, category: categoryId, supplier: supplierId, status, brand: brandId, pending: pendingData };
   const from = (currentPage - 1) * pageSize;
   const { count, data: products, error } = await queryManagementProducts(supabase, organization.id, filters, true).range(from, from + pageSize - 1);
 
-  if (error || categoriesResult.error || suppliersResult.error) {
+  if (error || categoriesResult.error || suppliersResult.error || brandsResult.error) {
     throw new Error("No se pudo consultar el inventario.");
   }
 
@@ -79,6 +85,8 @@ export default async function ProductsPage({
   if (q) normalizedParams.set("q", q);
   if (categoryId) normalizedParams.set("category", categoryId);
   if (supplierId) normalizedParams.set("supplier", supplierId);
+  if (brandId) normalizedParams.set("brand", brandId);
+  if (pendingData) normalizedParams.set("pending", pendingData);
   if (status) normalizedParams.set("status", status);
   normalizedParams.set("page_size", String(pageSize));
   if (currentPage > totalPages) redirect(pageHref(normalizedParams, totalPages));
@@ -102,8 +110,10 @@ export default async function ProductsPage({
         </div>
       </header>
 
-      <form className="product-filters mt-7 grid gap-3 border-y border-[var(--line)] py-4 sm:grid-cols-2 lg:grid-cols-3" method="get">
+      <form className="product-filters management-product-filters mt-7 border-y border-[var(--line)] py-4" method="get">
         <ProductSearch filters={filters} key={normalizedParams.toString()} />
+        <button className="button button-secondary gap-2" type="submit"><Search size={17} /> Filtrar</button>
+        <ProductFilterOptions active={Boolean(categoryId || supplierId || brandId || pendingData || status !== "active")}>
         <label>
           <span className="sr-only">Filtrar por categoría</span>
           <select className="field-input" defaultValue={categoryId} name="category">
@@ -119,11 +129,18 @@ export default async function ProductsPage({
           </select>
         </label>
         <label>
+          <span className="sr-only">Filtrar por marca</span><select className="field-input" defaultValue={brandId} name="brand"><option value="">Todas las marcas</option>{brandsResult.data?.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select>
+        </label>
+        <label>
+          <span className="sr-only">Datos pendientes</span><select className="field-input" defaultValue={pendingData} name="pending"><option value="">Cualquier dato</option><option value="category">Sin categoría</option><option value="brand">Sin marca</option><option value="cost">Costo cero: revisar</option></select>
+        </label>
+        <label>
           <span className="sr-only">Filtrar por estado</span>
           <select className="field-input" defaultValue={status} name="status">
             <option value="all">Todos</option>
             <option value="active">Activos</option>
             <option value="low">Para reponer</option>
+            <option value="zero">Sin stock</option>
             <option value="unassigned">Sin proveedor</option>
             <option value="inactive">Inactivos</option>
           </select>
@@ -134,11 +151,12 @@ export default async function ProductsPage({
             <option value={10}>10 por página</option><option value={20}>20 por página</option><option value={50}>50 por página</option>
           </select>
         </label>
-        <button className="button button-secondary gap-2" type="submit"><Search size={17} /> Filtrar</button>
+        </ProductFilterOptions>
       </form>
 
       {products?.length ? (
         <>
+          <ProductBatchTools brands={brandsResult.data ?? []} categories={categoriesResult.data ?? []} key={normalizedParams.toString()} products={products} />
           <div className="data-table-wrap" data-mobile-cards>
             <table className="data-table product-price-table">
               <thead>
@@ -160,10 +178,12 @@ export default async function ProductsPage({
                       <strong>{product.name}</strong>
                       <small>SKU {product.sku} · {product.brands?.name ?? "Sin marca"} · {product.categories?.name ?? "Sin categoría"}</small>
                       <small>{product.suppliers?.business_name ?? "Proveedor pendiente"}</small>
+                      <span className="catalog-attributes">{Object.values(readInventoryAttributes(product.inventory_attributes)).filter(Boolean).map((value, index) => <span key={index}>{value}</span>)}</span>
                       </div>
                     </td>
                     <td data-label="Stock">{quantity.format(Number(product.current_stock))} / mín. {quantity.format(Number(product.min_stock))}</td>
                     <ProductPriceCells
+                      key={product.id}
                       initialPrices={{
                         costPrice: Number(product.cost_price),
                         retailPrice: Number(product.retail_price),

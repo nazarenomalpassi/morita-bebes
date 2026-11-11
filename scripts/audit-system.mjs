@@ -11,6 +11,7 @@ import ExcelJS from "exceljs";
 import { auditManagementLoading } from "./audit-management-loading.mjs";
 import { auditPayrollDecimals } from "./audit-payroll-decimals.mjs";
 import { auditDirectPurchases } from "./audit-direct-purchases.mjs";
+import { auditManagementWorkflows } from "./audit-management-workflows.mjs";
 
 const root = process.cwd();
 const workspace = path.join(os.tmpdir(), "morita-system-audit");
@@ -111,12 +112,29 @@ async function auditDatabase() {
   const currentSuites = new Set(["verify_backdated_expenses_after_closure.sql", "verify_card_payment_surcharges.sql", "verify_daily_cash_closures.sql", "verify_ecommerce_storefront.sql", "verify_employee_permissions.sql", "verify_expense_combined_payments.sql", "verify_functional_audit.sql", "verify_invoker_security.sql", "verify_manual_sale_surcharge.sql", "verify_management_report_rankings.sql", "verify_personnel_payroll_cash_workflow.sql", "verify_safe_sale_submission_and_cancellation.sql", "verify_staff_product_update.sql"]);
   currentSuites.add("verify_direct_purchase_entry.sql");
   currentSuites.add("verify_standalone_inventory_entries.sql");
+  currentSuites.add("verify_management_workflow_improvements.sql");
   for (const file of (await readdir(path.join(root, "supabase/tests"))).filter((file) => file.startsWith("verify_") && file.endsWith(".sql") && (currentSuites.has(file) || process.env.AUDIT_INCLUDE_LEGACY === "1")).sort()) {
+    if (process.env.AUDIT_DB_CASE && !file.includes(process.env.AUDIT_DB_CASE)) continue;
     await attempt(file, async () => {
       const sql = await readFile(path.join(root, "supabase/tests", file), "utf8");
       assert(/^\s*begin;/i.test(sql) && /rollback;/i.test(sql), "SQL tests must roll back all fixture writes");
       // Only the disposable LOCAL test transaction bypasses single-org bootstrap.
-      const fixtures = sql.replace(/^\s*begin;/i, "begin;\nalter table public.organizations disable trigger guard_organization_bootstrap;\ncreate policy local_audit_bootstrap on public.organizations for insert to authenticated with check (created_by = auth.uid());");
+      // Freeze only this rollback-only SQL session at noon in Argentina. Cash
+      // workflow tests otherwise depend on whether the real clock passed 22:00.
+      const clock = `set local time zone 'America/Argentina/Cordoba';
+create function private.local_audit_now() returns timestamptz language sql stable set search_path = '' as $clock$ select ((transaction_timestamp() at time zone 'America/Argentina/Cordoba')::date + time '12:00') at time zone 'America/Argentina/Cordoba' $clock$;
+do $clock$ declare definition text; item record; begin
+  for definition in select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and p.prokind='f' and p.proname <> 'local_audit_now' and (pg_get_functiondef(p.oid) like '%now()%' or pg_get_functiondef(p.oid) like '%clock_timestamp()%') loop
+    execute replace(replace(definition, 'now()', 'private.local_audit_now()'), 'clock_timestamp()', 'private.local_audit_now()');
+  end loop;
+  for item in select n.nspname, c.relname, a.attname, pg_get_expr(d.adbin,d.adrelid) expression from pg_attrdef d join pg_attribute a on a.attrelid=d.adrelid and a.attnum=d.adnum join pg_class c on c.oid=d.adrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','private') and a.attgenerated='' and pg_get_expr(d.adbin,d.adrelid) like '%now()%' loop
+    execute format('alter table %I.%I alter column %I set default %s',item.nspname,item.relname,item.attname,replace(item.expression,'now()','private.local_audit_now()'));
+  end loop;
+end $clock$;
+set local session_replication_role = replica;
+update public.cash_tracking_settings set tracking_started_at = least(tracking_started_at, private.local_audit_now() - interval '1 day');
+set local session_replication_role = origin;`;
+      const fixtures = sql.replaceAll("now()", "private.local_audit_now()").replaceAll("clock_timestamp()", "private.local_audit_now()").replace(/^\s*begin;/i, `begin;\n${clock}\nalter table public.organizations disable trigger guard_organization_bootstrap;\ncreate policy local_audit_bootstrap on public.organizations for insert to authenticated with check (created_by = auth.uid());`);
       run("docker", ["exec", "-i", `supabase_db_${project}`, "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"], { input: fixtures, timeout: 120_000 });
     }, report.database);
   }
@@ -169,13 +187,17 @@ try {
     }
     await value(owner.from("products").update({ is_published: true }).eq("id", products[0].id), "local published product fixture");
     const tracking = await value(owner.from("cash_tracking_settings").select().eq("organization_id", organization.id), "cash tracking");
-    if (!tracking.length) await value(owner.rpc("initialize_cash_tracking", { p_organization_id: organization.id, p_tracking_started_at: new Date().toISOString(), p_balances: methods.map((item) => ({ payment_method_id: item.id, amount: ["cash", "transfer"].includes(item.code) ? 1_000_000 : 0 })) }), "initialize fixture cash");
+    const fixtureDay = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Cordoba" }).format(new Date());
+    if (!tracking.length) await value(owner.rpc("initialize_cash_tracking", { p_organization_id: organization.id, p_tracking_started_at: `${fixtureDay}T00:00:00-03:00`, p_balances: methods.map((item) => ({ payment_method_id: item.id, amount: ["cash", "transfer"].includes(item.code) ? 1_000_000 : 0 })) }), "initialize fixture cash");
     const employees = await value(owner.from("employees").select().eq("organization_id", organization.id), "employees");
     const employee = employees[0] ?? await value(owner.from("employees").insert({ organization_id: organization.id, first_name: "Audit", last_name: "Staff", user_id: users.staff.id, base_salary: 0, status: "active" }).select().single(), "employee fixture");
     await value(owner.rpc("set_employee_compensation", { p_organization_id: organization.id, p_employee_id: employee.id, p_base_salary: 700000, p_commission_percentage: 1, p_effective_from: "2026-08-01" }), "compensation fixture");
     await value(owner.from("site_settings").upsert({ organization_id: organization.id, whatsapp: "5493511234567" }, { onConflict: "organization_id" }), "local store contact fixture");
     await auditDatabase();
     if (process.env.AUDIT_DB_ONLY !== "1") {
+    // Ordinary browser flows exercise an open business day. Dedicated SQL
+    // suites above test the 22:00 boundary and immutable closures separately.
+    run("docker", ["exec", "-i", `supabase_db_${project}`, "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"], { input: `begin; set local session_replication_role = replica; update public.cash_tracking_settings set automatic_closure_enabled_from = (now() at time zone 'America/Argentina/Cordoba')::date + 1 where organization_id='${organization.id}'; commit;` });
     const appEnvironment = { ...process.env, NEXT_PUBLIC_SUPABASE_URL: settings.API_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: settings.ANON_KEY, SUPABASE_SECRET_KEY: settings.SERVICE_ROLE_KEY };
     const appMode = process.env.AUDIT_PRODUCTION_BUILD === "1" ? "start" : "dev";
     if (appMode === "start" && process.env.AUDIT_REUSE_BUILD !== "1") {
@@ -199,6 +221,9 @@ try {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await login(page, users.owner.email, password);
+    await auditManagementWorkflows({ page, browser, context, baseUrl, artifacts, attempt, owner, organizationId: organization.id, methods, staffEmail: users.staff.email, password, runLocalSql: (sql) => run("docker", ["exec", "-i", `supabase_db_${project}`, "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"], { input: sql }) });
+    if (process.env.AUDIT_WORKFLOWS_ONLY !== "1") {
+    await page.setViewportSize({ width: 1366, height: 768 });
     await auditDirectPurchases({ browser, context, baseUrl, artifacts, attempt, owner, organizationId: organization.id, supplierId: supplier.id, staffEmail: users.staff.email, password });
     if (process.env.AUDIT_DIRECT_ONLY !== "1") {
     await auditPayrollDecimals({ page, baseUrl, artifacts, attempt, owner, organizationId: organization.id, methods });
@@ -306,7 +331,11 @@ try {
       const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
       const ranking = await value(owner.rpc("get_business_analytics", { p_organization_id: organization.id, p_from: `${day.slice(0, 7)}-01`, p_to: day, p_compare_from: "2026-01-01", p_compare_to: "2026-01-01", p_goal_month: `${day.slice(0, 7)}-01` }), "ranking order");
       const leader = ranking.topProducts.sort((a, b) => b.units - a.units || a.name.localeCompare(b.name, "es") || a.id.localeCompare(b.id))[0].name;
-      assert.equal(await page.locator('.ranking-chart-scroll .recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-value').first().textContent(), leader.length > 21 ? `${leader.slice(0, 20)}…` : leader);
+      const leaderLabel = await page.locator('.ranking-chart-scroll .recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-value').first().evaluate((element) => {
+        const lines = [...element.querySelectorAll("tspan")];
+        return lines.length ? lines.map((line) => line.textContent).join(" ") : element.textContent;
+      });
+      assert.equal(leaderLabel, leader.length > 21 ? `${leader.slice(0, 20)}…` : leader);
       await page.setViewportSize({ width: 390, height: 844 });
       assert((await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)) <= 1);
       await page.screenshot({ path: path.join(artifacts, "management-ranking-50-mobile.png"), fullPage: true });
@@ -434,6 +463,7 @@ try {
       await page.waitForTimeout(500);
       await scanner.fill(products[0].barcode); await scanner.press("Enter");
       assert.equal(await page.getByLabel("Cantidad", { exact: true }).inputValue(), "2");
+      await page.locator(".sale-adjustments > summary").click();
       await page.locator('[name="discount"]').fill("100");
       await page.locator('[name="notes"]').fill("Local audit 100% sale");
       await page.getByRole("button", { name: "Registrar retiro sin cobro", exact: true }).click();
@@ -547,6 +577,7 @@ try {
       await pwaContext.close();
     });
     await attempt("No uncaught browser exceptions", () => assert.deepEqual(pageErrors, []));
+    }
     }
     await writeFile(path.join(artifacts, "server.log"), serverOutput);
     }
